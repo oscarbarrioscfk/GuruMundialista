@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Predicción Mundial 2026</title>
+    <title>Gurú Mundialista 2026</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
 
     <!-- Librería de Supabase -->
@@ -140,7 +140,7 @@
 
 <div class="container">
     <div class="header-top">
-        <h1>🏆 Mundial <span>2026</span></h1>
+        <h1>🔮 Gurú <span>Mundialista</span> 2026</h1>
         <div class="stats-badge" id="prediction-counter">Conectando a la nube...</div>
     </div>
 
@@ -914,7 +914,7 @@
             const rank = i < 3 ? medallas[i] : `#${i + 1}`;
             return `<div class="lb-row ${esYo ? 'lb-me' : ''}">
                 <span class="lb-rank">${rank}</span>
-                <span class="lb-nick">${p.nickname}${esYo ? ' <span style="color:var(--accent)">(tú)</span>' : ''} <span class="lb-real">· ${p.usuario_real}</span></span>
+                <span class="lb-nick">${p.nickname}${esYo ? ' <span style="color:var(--accent)">(tú)</span>' : ''}</span>
                 <span class="lb-pts">${p.puntos} pts</span>
             </div>`;
         }).join('');
