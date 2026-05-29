@@ -9,6 +9,17 @@
     <!-- Librería de Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+    <!-- Librería de EmailJS (envío de correos desde el navegador) -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script>
+        // Configuración pública de EmailJS (segura en el navegador; protegida por allowlist de dominio).
+        const EMAILJS_PUBLIC_KEY = 'kwXIghJAaMtMePEkR';
+        const EMAILJS_SERVICE_ID = 'service_cu4nylf';
+        const EMAILJS_TEMPLATE_RESUMEN = 'template_o85jtlh';
+        const EMAILJS_TEMPLATE_NICKNAME = 'template_stumfva';
+        if (window.emailjs) emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+    </script>
+
     <style>
         :root { --bg-color: #0d1117; --card-bg: #161b22; --border-color: #30363d; --text-main: #c9d1d9; --accent: #00ff88; --accent-hover: #00cc6a; --highlight: rgba(0, 255, 136, 0.1); }
         * { box-sizing: border-box; }
@@ -154,16 +165,52 @@
             <label>Nombre real:</label>
             <select id="userSelect" style="margin-bottom: 20px;">
                 <option value="">-- Selecciona de la lista --</option>
-                <option value="Óscar Barrios">Óscar Barrios</option>
-                <option value="Marianella Ortiz">Marianella Ortiz</option>
-                <option value="Aimee Fagan">Aimee Fagan</option>
-                <option value="Niel McLean">Niel McLean</option>
+                <option value="Alejandra Adelina Mahecha Roa">Alejandra Adelina Mahecha Roa</option>
+                <option value="Alejandro Espinal">Alejandro Espinal</option>
+                <option value="Anabell Zúñiga Ahumada">Anabell Zúñiga Ahumada</option>
+                <option value="Andrea Melo Tobón">Andrea Melo Tobón</option>
+                <option value="Camilo JR Torres Quiñones">Camilo JR Torres Quiñones</option>
+                <option value="Cesar Augusto Herrera Lozano">Cesar Augusto Herrera Lozano</option>
+                <option value="Cindy Lorena Torres">Cindy Lorena Torres</option>
+                <option value="Edson Gómez">Edson Gómez</option>
+                <option value="Elizabeth Marín">Elizabeth Marín</option>
+                <option value="Estefannya Vargas Cruz">Estefannya Vargas Cruz</option>
+                <option value="Fernanda Ayala">Fernanda Ayala</option>
+                <option value="Gilberto Arturo Luna Beltran">Gilberto Arturo Luna Beltran</option>
+                <option value="Jenny Fernanda Salcedo">Jenny Fernanda Salcedo</option>
+                <option value="Jesica Lubrano">Jesica Lubrano</option>
+                <option value="Jimmy Alejandro Hernández Tisoy">Jimmy Alejandro Hernández Tisoy</option>
+                <option value="Juan Camilo Londoño Estrada">Juan Camilo Londoño Estrada</option>
+                <option value="Juan Pablo Restrepo">Juan Pablo Restrepo</option>
+                <option value="Laura Barragán">Laura Barragán</option>
+                <option value="Laura Yaneth Noguera Quenguan">Laura Yaneth Noguera Quenguan</option>
+                <option value="Marcela Ortiz">Marcela Ortiz</option>
+                <option value="Marianella Ortiz Montes">Marianella Ortiz Montes</option>
+                <option value="Maritza Paz">Maritza Paz</option>
+                <option value="Martín Díaz Acevedo">Martín Díaz Acevedo</option>
+                <option value="Nancy Vera Torres">Nancy Vera Torres</option>
+                <option value="Natalí Ortiz Betancurt">Natalí Ortiz Betancurt</option>
+                <option value="Nathalia Salinas Tarazona">Nathalia Salinas Tarazona</option>
+                <option value="Óscar Daniel Barrios Díaz">Óscar Daniel Barrios Díaz</option>
+                <option value="Paula María Álvarez Peña">Paula María Álvarez Peña</option>
+                <option value="Saúl Torres">Saúl Torres</option>
+                <option value="Vanessa Maya Cerón">Vanessa Maya Cerón</option>
+                <option value="Vladimir Ortiz Herrera">Vladimir Ortiz Herrera</option>
             </select>
-            <label id="nick-label">Crea un Nickname:</label>
-            <div class="input-group">
-                <input type="text" id="nickname" placeholder="Escribe o lanza el dado 👉" maxlength="30">
-                <button class="btn-dice" id="dice-btn" onclick="generarNicknameRandom()">🎲</button>
+            <div id="email-field">
+                <label>Correo electrónico:</label>
+                <input type="email" id="useremail" placeholder="tucorreo@ejemplo.com" style="margin-bottom: 15px;" maxlength="100">
+                <label>Confirma tu correo electrónico:</label>
+                <input type="email" id="useremail2" placeholder="Vuelve a escribir tu correo" style="margin-bottom: 20px;" maxlength="100" onpaste="return false;">
             </div>
+            <div id="nick-field">
+                <label id="nick-label">Crea un Nickname:</label>
+                <div class="input-group">
+                    <input type="text" id="nickname" placeholder="Escribe o lanza el dado 👉" maxlength="30">
+                    <button class="btn-dice" id="dice-btn" onclick="generarNicknameRandom()">🎲</button>
+                </div>
+            </div>
+            <p id="login-hint" class="hidden" style="color:#8b949e; font-size:0.85em; margin-top:8px;"></p>
         </div>
         <button class="btn" id="main-action-btn" type="button" onclick="validarYComenzar()">Comenzar Predicción</button>
     </div>
@@ -563,6 +610,7 @@
 
         payloadGuardado = {
             usuario_real: document.getElementById('userSelect').value,
+            email: document.getElementById('useremail').value.trim(),
             nickname: document.getElementById('nickname').value.trim(),
             nivel: 'fiebre', // este flujo es el nivel completo; "fan" llega en la Fase 2
             campeon: champ, // columna de nivel superior (legible) para validar consistencia entre niveles
@@ -572,6 +620,45 @@
     }
 
     function cerrarModal() { document.getElementById('statsModal').style.display = 'none'; }
+
+    // Arma el resumen en texto plano (según el nivel) y lo envía al correo del participante.
+    async function enviarCorreoResumen() {
+        if (!window.emailjs || !payloadGuardado || !payloadGuardado.email) return;
+        let resumen = '';
+        if (payloadGuardado.nivel === 'fan') {
+            const p = payloadGuardado.payload;
+            const etiq = { gana: 'Gana', empata: 'Empata', pierde: 'Pierde' };
+            const lineasPartidos = COLOMBIA_RIVALES.map(r => `  - Colombia vs ${r}: ${etiq[p.partidos[r]] || '—'}`).join('\n');
+            resumen =
+                `Nivel: Fan de la Sele\n\n` +
+                `Resultados de Colombia en fase de grupos:\n${lineasPartidos}\n` +
+                `Posición de Colombia en su grupo: ${p.posicionGrupo}\n` +
+                `Colombia llega hasta: ${p.posicion}\n` +
+                `Último goleador: ${p.goleador}\n` +
+                `Campeón del Mundial: ${p.campeon}`;
+        } else {
+            const b = payloadGuardado.payload.bracket;
+            const champ = b.final?.[0]?.winner || '—';
+            const sub = b.final?.[0] ? (b.final[0].t1 === champ ? b.final[0].t2 : b.final[0].t1) : '—';
+            const bronce = b.third?.[0]?.winner || '—';
+            resumen =
+                `Nivel: Fiebre del Mundial\n\n` +
+                `Campeón: ${champ}\n` +
+                `Subcampeón: ${sub}\n` +
+                `Tercer puesto: ${bronce}\n\n` +
+                `(Tu predicción completa de grupos y eliminatoria quedó guardada en el sistema.)`;
+        }
+        try {
+            await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_RESUMEN, {
+                to_email: payloadGuardado.email,
+                nickname: payloadGuardado.nickname,
+                nivel: payloadGuardado.nivel === 'fan' ? 'Fan de la Sele' : 'Fiebre del Mundial',
+                resumen: resumen
+            });
+        } catch (e) {
+            console.error('No se pudo enviar el correo de resumen:', e);
+        }
+    }
 
     // Abre el modal en la vista de confirmación (reinicia el botón y oculta la vista de éxito).
     function abrirModalConfirmacion() {
@@ -676,17 +763,62 @@
         isLoginMode = mode === 'login';
         document.getElementById('btn-new').classList.toggle('active', !isLoginMode);
         document.getElementById('btn-login').classList.toggle('active', isLoginMode);
+        // En login: pedimos nickname (no correo) y mostramos la ayuda "olvidé mi nickname".
+        document.getElementById('email-field').classList.toggle('hidden', isLoginMode);
         document.getElementById('nick-label').innerText = isLoginMode ? 'Ingresa tu Nickname:' : 'Crea un Nickname:';
         document.getElementById('dice-btn').style.display = isLoginMode ? 'none' : 'block';
         document.getElementById('main-action-btn').innerText = isLoginMode ? 'Entrar a mi Tablero' : 'Comenzar Predicción';
+        const hint = document.getElementById('login-hint');
+        hint.classList.toggle('hidden', !isLoginMode);
+        if (isLoginMode) {
+            hint.innerHTML = '¿Olvidaste tu nickname? <a href="#" onclick="recuperarNickname(); return false;" style="color:var(--accent)">Te lo enviamos por correo</a>';
+        }
+    }
+
+    // "Olvidé mi nickname": busca el correo asociado al nombre elegido y le envía su(s) nickname(s).
+    async function recuperarNickname() {
+        const nombre = document.getElementById('userSelect').value;
+        if (!nombre) return alert("⚠️ Primero elige tu nombre de la lista.");
+        if (!dbClient) return alert("❌ No hay conexión a la base de datos.");
+        try {
+            const { data, error } = await dbClient.from('predicciones')
+                .select('nickname, email, nivel').eq('usuario_real', nombre);
+            if (error) throw error;
+            const filas = (data || []).filter(f => f.nickname);
+            if (!filas.length) return alert("No encontramos predicciones registradas a tu nombre todavía.");
+            const conEmail = filas.find(f => f.email);
+            if (!conEmail || !conEmail.email) {
+                return alert("Tienes una predicción registrada, pero no hay un correo asociado a tu nombre, así que no podemos enviarte el nickname. Contacta al organizador.");
+            }
+            // Listamos los nickname únicos registrados con ese nombre.
+            const nicks = [...new Set(filas.map(f => f.nickname))].join(', ');
+            if (!window.emailjs) return alert("El servicio de correo no está disponible en este momento.");
+            await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_NICKNAME, {
+                to_email: conEmail.email,
+                nickname: nicks
+            });
+            alert(`✅ Enviamos tu nickname al correo registrado a nombre de ${nombre}. Revisa tu bandeja de entrada (y spam).`);
+        } catch (e) {
+            console.error(e);
+            alert("❌ No se pudo enviar el correo. Intenta más tarde.");
+        }
     }
 
     function validarYComenzar() {
         const nombre = document.getElementById('userSelect').value;
         const nick = document.getElementById('nickname').value.trim();
-        if (!nombre || !nick) return alert("⚠️ Completa tu nombre y nickname.");
-        if (isLoginMode) { hacerLoginReal(nombre, nick); return; }
-        // Modo nueva predicción: mostrar el selector de nivel.
+        if (isLoginMode) {
+            if (!nombre || !nick) return alert("⚠️ Completa tu nombre y nickname.");
+            hacerLoginReal(nombre, nick);
+            return;
+        }
+        // Modo nueva predicción: nombre, correo y nickname obligatorios.
+        const email = document.getElementById('useremail').value.trim();
+        const email2 = document.getElementById('useremail2').value.trim();
+        if (!nombre || !email || !nick) return alert("⚠️ Completa tu nombre, correo y nickname.");
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return alert("⚠️ Escribe un correo electrónico válido.");
+        if (email.toLowerCase() !== email2.toLowerCase()) return alert("⚠️ Los dos correos no coinciden. Revísalos: este correo es la forma de recuperar tu cuenta.");
+        // Mostrar el selector de nivel.
         const sel = document.getElementById('step-nivel');
         sel.classList.remove('hidden');
         sel.classList.add('active');
@@ -787,6 +919,7 @@
 
         payloadGuardado = {
             usuario_real: document.getElementById('userSelect').value,
+            email: document.getElementById('useremail').value.trim(),
             nickname: document.getElementById('nickname').value.trim(),
             nivel: 'fan',
             campeon: campeon, // columna de nivel superior (legible) para validar consistencia entre niveles
@@ -962,6 +1095,7 @@
             // 'otroNivel' (calculado arriba) indica si ya tenía el otro nivel: si sí, ahora completó ambos.
             const completoAmbos = !!otroNivel;
             mostrarExitoEnModal(payloadGuardado.nivel, completoAmbos);
+            enviarCorreoResumen();
         } catch (e) {
             console.error(e);
             alert("❌ Error al guardar en la nube. Se descargará un respaldo.");
