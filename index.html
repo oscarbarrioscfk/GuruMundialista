@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gurú Mundialista 2026</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚽</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
 
     <!-- Librería de Supabase -->
@@ -117,6 +118,14 @@
         .result-btn.sel-draw { background: #ffd700; color: #000; border-color: #ffd700; }
         .result-btn.sel-lose { background: #f85149; color: #fff; border-color: #f85149; }
 
+        /* Trofeo del campeón: aparece con una pequeña celebración */
+        .trofeo-champ { display: inline-block; animation: trofeo-pop 0.5s ease; filter: drop-shadow(0 0 6px rgba(255,215,0,0.7)); }
+        @keyframes trofeo-pop {
+            0% { transform: scale(0) rotate(-30deg); opacity: 0; }
+            60% { transform: scale(1.4) rotate(10deg); }
+            100% { transform: scale(1) rotate(0); opacity: 1; }
+        }
+
         /* Dashboard: pestañas de ranking y tabla de posiciones */
         .rank-tabs { display: flex; gap: 8px; margin: 20px 0 15px; flex-wrap: wrap; }
         .rank-tab { flex: 1; min-width: 120px; padding: 10px; background: #0d1117; border: 1px solid var(--border-color); color: #8b949e; border-radius: 8px; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 0.85em; transition: 0.2s; }
@@ -209,6 +218,7 @@
                     <input type="text" id="nickname" placeholder="Escribe o lanza el dado 👉" maxlength="30">
                     <button class="btn-dice" id="dice-btn" onclick="generarNicknameRandom()">🎲</button>
                 </div>
+                <p id="nick-easter" style="color:var(--accent); font-size:0.8em; margin-top:8px; min-height:1em;"></p>
             </div>
             <p id="login-hint" class="hidden" style="color:#8b949e; font-size:0.85em; margin-top:8px;"></p>
         </div>
@@ -273,7 +283,10 @@
 
         <h3>5. ¿Quién será el campeón del Mundial?</h3>
         <p style="color:#8b949e; margin-top:-4px; font-size:0.85em;">Acertar al campeón vale bastantes puntos: es tu gran apuesta.</p>
-        <select id="fan-campeon" style="max-width:400px;"><option value="">-- Selecciona --</option></select>
+        <div style="display:flex; align-items:center; gap:12px; max-width:460px;">
+            <select id="fan-campeon" style="max-width:400px;" onchange="mostrarTrofeoFan()"><option value="">-- Selecciona --</option></select>
+            <span id="fan-trofeo" style="font-size:1.8em;"></span>
+        </div>
 
         <button class="btn" type="button" style="margin-top:25px;" onclick="prepararGuardadoFan()">Validar y Guardar</button>
     </div>
@@ -534,7 +547,10 @@
             bData[s].forEach((m, mIdx) => {
                 let mBox = document.createElement('div'); mBox.className = 'match-box';
                 let t1 = m ? m.t1 : null, t2 = m ? m.t2 : null, w = m ? m.winner : null;
-                mBox.innerHTML = `<div class="match-team ${w === t1 && w !== null ? 'winner' : ''}" onclick="setWinner('${s}', ${mIdx}, 1)">${getFlagHTML(t1)} <span>${t1 || 'TBD'}</span></div><div class="match-divider"></div><div class="match-team ${w === t2 && w !== null ? 'winner' : ''}" onclick="setWinner('${s}', ${mIdx}, 2)">${getFlagHTML(t2)} <span>${t2 || 'TBD'}</span></div>`;
+                // En la final, el ganador (campeón) muestra un trofeo animado.
+                const trofeo = s === 'final' ? ' <span class="trofeo-champ">🏆</span>' : '';
+                const w1 = w === t1 && w !== null, w2 = w === t2 && w !== null;
+                mBox.innerHTML = `<div class="match-team ${w1 ? 'winner' : ''}" onclick="setWinner('${s}', ${mIdx}, 1)">${getFlagHTML(t1)} <span>${t1 || 'TBD'}</span>${w1 ? trofeo : ''}</div><div class="match-divider"></div><div class="match-team ${w2 ? 'winner' : ''}" onclick="setWinner('${s}', ${mIdx}, 2)">${getFlagHTML(t2)} <span>${t2 || 'TBD'}</span>${w2 ? trofeo : ''}</div>`;
                 col.appendChild(mBox);
             });
             c.appendChild(col);
@@ -583,7 +599,7 @@
         if (bData.final[0]?.winner && bData.third[0]?.winner) {
             let champ = bData.final[0].winner, sub = bData.final[0].t1 === champ ? bData.final[0].t2 : bData.final[0].t1;
             let bronze = bData.third[0].winner, cuarto = bData.third[0].t1 === bronze ? bData.third[0].t2 : bData.third[0].t1;
-            document.getElementById('podium-container').innerHTML = `<div class="gold">🥇 ${champ}</div><div class="silver">🥈 ${sub}</div><div class="bronze">🥉 ${bronze}</div><div style="margin-top:15px; color:#8b949e; font-size:0.9em;">4° ${cuarto}</div>`;
+            document.getElementById('podium-container').innerHTML = `<div class="gold">🏆 ${champ} <span class="trofeo-champ">🏆</span></div><div class="silver">🥈 ${sub}</div><div class="bronze">🥉 ${bronze}</div><div style="margin-top:15px; color:#8b949e; font-size:0.9em;">4° ${cuarto}</div>`;
             document.getElementById('step-5').classList.add('active');
             document.getElementById('step-5').scrollIntoView({ behavior: 'smooth' });
         } else {
@@ -738,6 +754,7 @@
     function resetFan() {
         fanPicks = { partidos: {}, posicionGrupo: null, posicion: null, goleador: "", campeon: null };
         ['fan-posicion', 'fan-goleador', 'fan-campeon'].forEach(id => { const s = document.getElementById(id); if (s) s.selectedIndex = 0; });
+        const trofeo = document.getElementById('fan-trofeo'); if (trofeo) trofeo.innerHTML = '';
         document.querySelectorAll('#fan-posgrupo .result-btn').forEach(b => b.classList.remove('sel-win'));
     }
 
@@ -753,10 +770,77 @@
         renderizarGrupos();
     }
 
+    // ==========================================
+    // FILTRO DE NICKNAMES INAPROPIADOS
+    // Lista editable: añade o quita términos según necesites (todo en minúsculas, sin tildes).
+    // El filtro normaliza el texto (quita tildes/espacios/símbolos y convierte números que
+    // imitan letras: 1->i, 3->e, 0->o, 4->a, 5->s, 7->t) antes de comparar, así detecta
+    // variantes como "t1gre", "T I G R E" o "tïgré".
+    // ==========================================
+    const NICKNAMES_PROHIBIDOS = [
+        // --- Términos políticos a evitar (edita según tu criterio) ---
+        "tigre", "delaespriella", "cepeda",
+        // --- Groserías / insultos comunes en español ---
+        "mierda", "puta", "puto", "puto", "cabron", "cabrona", "pendejo", "pendeja",
+        "marica", "maricon", "gonorrea", "hijueputa", "hpta", "malparido", "malparida",
+        "gambito", "guevon", "gueon", "huevon", "imbecil", "idiota", "estupido", "estupida",
+        "perra", "zorra", "zorro", "cerdo", "cerda", "asqueroso", "carechimba", "chimba",
+        // --- Términos sexuales / explícitos ---
+        "sexo", "verga", "pene", "vagina", "polla", "tetas", "culo", "culero", "follar",
+        "coger", "porno", "porn", "xxx", "orgia", "masturba", "semen", "pezon", "nalga",
+        // --- Discriminatorios / de odio ---
+        "nazi", "hitler", "violador", "violar",
+        // --- Insultos en inglés frecuentes ---
+        "fuck", "shit", "bitch", "asshole", "dick", "pussy", "cunt", "nigger", "nigga", "rape"
+    ];
+
+    // Normaliza un texto para comparar contra la lista (robusto a evasiones).
+    function normalizarParaFiltro(texto) {
+        return (texto || '')
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita tildes/diacríticos
+            .replace(/1/g, 'i').replace(/3/g, 'e').replace(/0/g, 'o')
+            .replace(/4/g, 'a').replace(/5/g, 's').replace(/7/g, 't')
+            .replace(/@/g, 'a').replace(/\$/g, 's')
+            .replace(/[^a-z]/g, ''); // quita espacios, números restantes y símbolos
+    }
+
+    // Devuelve true si el nickname contiene algún término prohibido.
+    function nicknameEsInapropiado(nick) {
+        const limpio = normalizarParaFiltro(nick);
+        if (!limpio) return false;
+        return NICKNAMES_PROHIBIDOS.some(palabra => limpio.includes(normalizarParaFiltro(palabra)));
+    }
+
+    // Figuras de la computación, el pensamiento computacional y las ciencias (mujeres y hombres).
+    // Easter egg: al generar un nickname, se muestra quién es la figura homenajeada.
+    const FIGURAS_NICK = [
+        ['Lovelace', 'Ada Lovelace, pionera de la programación'],
+        ['Hopper', 'Grace Hopper, creadora del primer compilador'],
+        ['Wing', "Jeannette Wing, acuñó el término 'pensamiento computacional'"],
+        ['Weintrop', 'David Weintrop, investigador en pensamiento computacional'],
+        ['Grover', 'Shuchi Grover, investigadora en pensamiento computacional'],
+        ['Turing', 'Alan Turing, padre de la computación teórica'],
+        ['Papert', 'Seymour Papert, creador de Logo y el construccionismo'],
+        ['Goldberg', 'Adele Goldberg, pionera de la programación orientada a objetos'],
+        ['Liskov', 'Barbara Liskov, pionera de los lenguajes de programación'],
+        ['Hamilton', 'Margaret Hamilton, lideró el software del Apolo 11'],
+        ['Knuth', 'Donald Knuth, autor de "El Arte de Programar"'],
+        ['Johnson', 'Katherine Johnson, matemática clave de la NASA'],
+        ['Dijkstra', 'Edsger Dijkstra, pionero de los algoritmos'],
+        ['Allen', 'Frances Allen, pionera de la optimización de compiladores'],
+        ['Engelbart', 'Douglas Engelbart, inventor del mouse'],
+        ['Borg', 'Anita Borg, defensora de las mujeres en la tecnología'],
+        ['Curie', 'Marie Curie, pionera del estudio de la radiactividad'],
+        ['Noether', 'Emmy Noether, matemática revolucionaria']
+    ];
+
     function generarNicknameRandom() {
-        const adj = ['Epico', 'Feroz', 'Supremo', 'Letal'];
-        const sus = ['Mago', 'Ninja', 'Tigre', 'Titan'];
-        document.getElementById('nickname').value = `${sus[Math.floor(Math.random() * 4)]}${adj[Math.floor(Math.random() * 4)]}_${Math.floor(Math.random() * 999)}`;
+        const fig = FIGURAS_NICK[Math.floor(Math.random() * FIGURAS_NICK.length)];
+        const num = Math.floor(Math.random() * 999);
+        document.getElementById('nickname').value = `${fig[0]}_${num}`;
+        const easter = document.getElementById('nick-easter');
+        if (easter) easter.innerText = `✨ ${fig[1]}`;
     }
 
     function toggleMode(mode) {
@@ -816,6 +900,7 @@
         const email = document.getElementById('useremail').value.trim();
         const email2 = document.getElementById('useremail2').value.trim();
         if (!nombre || !email || !nick) return alert("⚠️ Completa tu nombre, correo y nickname.");
+        if (nicknameEsInapropiado(nick)) return alert("⚠️ Ese nickname no está permitido. Por favor elige otro.");
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return alert("⚠️ Escribe un correo electrónico válido.");
         if (email.toLowerCase() !== email2.toLowerCase()) return alert("⚠️ Los dos correos no coinciden. Revísalos: este correo es la forma de recuperar tu cuenta.");
         // Mostrar el selector de nivel.
@@ -884,6 +969,12 @@
     function setFanResultado(rival, res) {
         fanPicks.partidos[rival] = res;
         renderFanPartidos();
+    }
+
+    // Muestra (o esconde) el trofeo junto al campeón elegido en el nivel Fan.
+    function mostrarTrofeoFan() {
+        const el = document.getElementById('fan-trofeo');
+        if (el) el.innerHTML = document.getElementById('fan-campeon').value ? '<span class="trofeo-champ">🏆</span>' : '';
     }
 
     function setFanPosGrupo(pos) {
@@ -1123,7 +1214,7 @@
             // Pedimos solo 'id' (columna permitida): 'select(*)' fallaría porque 'payload' no es legible.
             const { count, error } = await dbClient.from('predicciones').select('id', { count: 'exact', head: true });
             if (error) throw error;
-            document.getElementById('prediction-counter').innerHTML = `🔥 <strong>${count}</strong> predicciones en la BD oficial`;
+            document.getElementById('prediction-counter').innerHTML = `🔥 <strong>${count}</strong> predicciones a hoy`;
         } catch (error) {
             console.error("Error al conectar a Supabase:", error.message);
             dbClient = null; // sin conexión real: el guardado usará respaldo local en vez de colgarse
