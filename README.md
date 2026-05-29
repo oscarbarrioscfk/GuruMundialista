@@ -1,4 +1,4 @@
-# 🏆 Polla Mundial 2026 — Colombia Programa
+# 🔮 Gurú Mundialista 2026 — Colombia Programa
 
 Aplicación web para hacer predicciones del Mundial de Fútbol 2026, pensada para el proyecto **Colombia Programa**. Ofrece **dos niveles de dificultad** para que tanto el fanático ocasional de la Selección Colombia como quien sigue todo el torneo puedan participar.
 
