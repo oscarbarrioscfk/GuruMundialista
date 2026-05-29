@@ -105,6 +105,21 @@
         .result-btn.sel-win { background: var(--accent); color: #000; border-color: var(--accent); }
         .result-btn.sel-draw { background: #ffd700; color: #000; border-color: #ffd700; }
         .result-btn.sel-lose { background: #f85149; color: #fff; border-color: #f85149; }
+
+        /* Dashboard: pestañas de ranking y tabla de posiciones */
+        .rank-tabs { display: flex; gap: 8px; margin: 20px 0 15px; flex-wrap: wrap; }
+        .rank-tab { flex: 1; min-width: 120px; padding: 10px; background: #0d1117; border: 1px solid var(--border-color); color: #8b949e; border-radius: 8px; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 0.85em; transition: 0.2s; }
+        .rank-tab:hover { border-color: var(--accent); }
+        .rank-tab.active { background: #21262d; color: var(--accent); border-color: var(--accent); }
+        #leaderboard { max-height: 420px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; }
+        .lb-row { display: flex; align-items: center; gap: 12px; padding: 12px 15px; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.15); }
+        .lb-row:last-child { border-bottom: none; }
+        .lb-rank { width: 38px; text-align: center; font-weight: 700; flex-shrink: 0; }
+        .lb-nick { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lb-real { color: #8b949e; font-weight: 400; font-size: 0.85em; }
+        .lb-pts { color: var(--accent); font-weight: 600; flex-shrink: 0; }
+        .lb-me { background: var(--highlight); border-left: 3px solid var(--accent); }
+        .lb-hint { background: #21262d; border: 1px dashed var(--border-color); border-radius: 8px; padding: 12px 15px; margin-bottom: 12px; color: #8b949e; font-size: 0.9em; }
     </style>
 </head>
 <body>
@@ -154,18 +169,19 @@
     </div>
 
     <div class="card hidden" id="dashboard-view" style="opacity: 1; pointer-events: auto;">
-        <h2>📊 Tu Dashboard</h2>
-        <div class="dashboard-header">
-            <div class="dash-stat">
-                <div class="dash-label">Tu Posición</div>
-                <div class="dash-val">#<span id="dash-rank">--</span></div>
-            </div>
-            <div class="dash-stat">
-                <div class="dash-label">Puntos Totales</div>
-                <div class="dash-val"><span id="dash-score">--</span> pts</div>
-            </div>
+        <h2>📊 Tablero de <span id="dash-nick" style="color:var(--accent)"></span></h2>
+        <div class="dashboard-header" id="dash-personal"></div>
+
+        <div class="rank-tabs">
+            <button class="rank-tab active" data-tab="fan" onclick="switchRankingTab('fan')">Fan de la Sele</button>
+            <button class="rank-tab" data-tab="fiebre" onclick="switchRankingTab('fiebre')">Fiebre del Mundial</button>
+            <button class="rank-tab" data-tab="absoluto" onclick="switchRankingTab('absoluto')">🏆 Absoluto</button>
         </div>
-        <button class="btn" style="background:#30363d; color:white;" onclick="location.reload()">Cerrar Sesión</button>
+        <div id="leaderboard-hint"></div>
+        <div id="leaderboard"></div>
+        <p style="color:#8b949e; font-size:0.85em; margin-top:15px;">ℹ️ Los puntos se calcularán durante el Mundial. Por ahora todos aparecen en 0.</p>
+
+        <button class="btn" style="background:#30363d; color:white; margin-top:10px;" onclick="location.reload()">Cerrar Sesión</button>
     </div>
 
     <!-- Selector de nivel (se muestra tras la identidad en modo nueva predicción) -->
@@ -584,7 +600,35 @@
         document.getElementById('modal-confirm').classList.add('hidden');
         const exito = document.getElementById('modal-success');
         exito.classList.remove('hidden');
-        exito.innerHTML = `<h2>✅ ¡Predicción Guardada!</h2>${cuerpo}`;
+        exito.innerHTML = `<h2>✅ ¡Predicción Guardada!</h2>
+            <div id="champ-stat" style="margin-bottom:18px;"></div>${cuerpo}`;
+        mostrarEstadisticaCampeon(payloadGuardado.campeon);
+    }
+
+    // Calcula y muestra qué % de participantes eligió el mismo campeón.
+    async function mostrarEstadisticaCampeon(campeon) {
+        const cont = document.getElementById('champ-stat');
+        if (!cont || !dbClient || !campeon) return;
+        try {
+            const { data, error } = await dbClient.from('predicciones').select('campeon');
+            if (error) throw error;
+            const filas = (data || []).filter(f => f.campeon); // filas con campeón definido
+            const total = filas.length;
+            if (total === 0) return;
+            const iguales = filas.filter(f => f.campeon === campeon).length;
+            const pct = Math.round((iguales / total) * 100);
+            cont.innerHTML = `
+                <div style="background:#21262d; border:1px solid var(--border-color); border-radius:10px; padding:15px;">
+                    <p style="margin:0 0 8px;">${getFlagHTML(campeon)} <strong>${pct}%</strong> de los participantes también eligió a <strong>${campeon}</strong> como campeón.</p>
+                    <div style="background:#0d1117; border-radius:5px; height:10px; overflow:hidden;">
+                        <div style="background:var(--accent); height:100%; width:0%; transition:width 0.8s ease;" id="champ-bar"></div>
+                    </div>
+                    <p style="margin:8px 0 0; color:#8b949e; font-size:0.8em;">${iguales} de ${total} predicciones</p>
+                </div>`;
+            setTimeout(() => { const b = document.getElementById('champ-bar'); if (b) b.style.width = pct + '%'; }, 100);
+        } catch (e) {
+            console.error('No se pudo cargar la estadística de campeón:', e.message);
+        }
     }
 
     function irAlTablero() {
@@ -797,6 +841,10 @@
         return i === -1 ? null : i + 1;
     }
 
+    // Estado del dashboard (para cambiar de pestaña sin volver a consultar la BD).
+    let rankingsData = null;
+    let dashNick = null;
+
     async function hacerLoginReal(nombre, nick) {
         const btn = document.getElementById('main-action-btn');
         btn.innerText = 'Buscando en BD...'; btn.disabled = true;
@@ -806,29 +854,70 @@
             return;
         }
         try {
-            const { fan, fiebre } = await cargarRankings();
-            // Buscamos al usuario por nombre + nickname en cualquiera de los niveles.
-            const enFan = fan.find(p => p.nickname === nick && p.usuario_real === nombre);
-            const enFiebre = fiebre.find(p => p.nickname === nick && p.usuario_real === nombre);
+            const r = await cargarRankings();
+            const enFan = r.fan.find(p => p.nickname === nick && p.usuario_real === nombre);
+            const enFiebre = r.fiebre.find(p => p.nickname === nick && p.usuario_real === nombre);
             if (!enFan && !enFiebre) {
                 alert("❌ No encontramos tu predicción. Revisa el Nombre y Nickname.");
                 btn.innerText = 'Entrar a mi Tablero'; btn.disabled = false;
                 return;
             }
-            // Por ahora mostramos el nivel "fiebre" si existe; si no, el "fan".
-            // (En la Fase 3 el dashboard mostrará los tres rankings.)
-            const lista = enFiebre ? fiebre : fan;
-            const reg = enFiebre || enFan;
+            rankingsData = r; dashNick = nick;
             document.getElementById('step-1').classList.add('hidden');
             document.getElementById('prediction-flow').classList.add('hidden');
+            document.getElementById('fan-flow').classList.add('hidden');
+            document.getElementById('step-nivel').classList.add('hidden');
             document.getElementById('dashboard-view').classList.remove('hidden');
-            document.getElementById('dash-rank').innerText = posicionEn(lista, nick) ?? '--';
-            document.getElementById('dash-score').innerText = reg.puntos ?? 0;
+            document.getElementById('dash-nick').innerText = nick;
+            renderDashPersonal(r, nick);
+            // Pestaña inicial: el nivel que la persona jugó (preferimos Fiebre si jugó ambos).
+            switchRankingTab(enFiebre ? 'fiebre' : 'fan');
+            document.getElementById('dashboard-view').scrollIntoView({ behavior: 'smooth' });
         } catch (e) {
             console.error(e);
             alert("❌ Error de red.");
             btn.innerText = 'Entrar a mi Tablero'; btn.disabled = false;
         }
+    }
+
+    // Tarjetas con la posición personal del usuario en cada ranking que juega.
+    function renderDashPersonal(r, nick) {
+        const tarjeta = (label, lista) => {
+            const pos = posicionEn(lista, nick);
+            if (!pos) return '';
+            const pts = lista.find(p => p.nickname === nick).puntos;
+            return `<div class="dash-stat"><div class="dash-label">${label}</div><div class="dash-val">#${pos}</div><div style="color:#8b949e; font-size:0.85em;">${pts} pts</div></div>`;
+        };
+        document.getElementById('dash-personal').innerHTML =
+            tarjeta('Fan de la Sele', r.fan) + tarjeta('Fiebre del Mundial', r.fiebre) + tarjeta('Absoluto', r.absoluto);
+    }
+
+    function switchRankingTab(tab) {
+        document.querySelectorAll('.rank-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+        renderLeaderboard(rankingsData[tab], dashNick, tab);
+    }
+
+    function renderLeaderboard(lista, nick, tab) {
+        const hint = document.getElementById('leaderboard-hint');
+        const c = document.getElementById('leaderboard');
+        hint.innerHTML = '';
+        if (tab === 'absoluto' && !posicionEn(lista, nick)) {
+            hint.innerHTML = `<div class="lb-hint">El ranking absoluto es solo para quienes juegan <strong>ambos niveles</strong> con el mismo nickname. ¡Juega el otro nivel para entrar aquí!</div>`;
+        }
+        if (!lista.length) {
+            c.innerHTML = '<div class="lb-row"><span class="lb-nick" style="color:#8b949e">Aún no hay participantes en este ranking.</span></div>';
+            return;
+        }
+        const medallas = ['🥇', '🥈', '🥉'];
+        c.innerHTML = lista.map((p, i) => {
+            const esYo = p.nickname === nick;
+            const rank = i < 3 ? medallas[i] : `#${i + 1}`;
+            return `<div class="lb-row ${esYo ? 'lb-me' : ''}">
+                <span class="lb-rank">${rank}</span>
+                <span class="lb-nick">${p.nickname}${esYo ? ' <span style="color:var(--accent)">(tú)</span>' : ''} <span class="lb-real">· ${p.usuario_real}</span></span>
+                <span class="lb-pts">${p.puntos} pts</span>
+            </div>`;
+        }).join('');
     }
 
     async function intentarGuardarBD() {
