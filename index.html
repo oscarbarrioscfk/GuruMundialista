@@ -109,8 +109,9 @@
         /* Fan de la Sele */
         #fan-flow h3 { color: var(--accent); margin-top: 28px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
         .fan-match { background: #21262d; border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; margin-bottom: 15px; }
-        .fan-match-teams { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 600; flex-wrap: wrap; }
+        .fan-match-teams { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-weight: 600; flex-wrap: wrap; }
         .fan-match-teams .vs { color: #8b949e; font-weight: 400; margin: 0 4px; }
+        .fan-match-date { color: #8b949e; font-size: 0.82em; margin-bottom: 12px; }
         .fan-result-btns { display: flex; gap: 10px; }
         .result-btn { flex: 1; padding: 10px; background: #30363d; border: 1px solid var(--border-color); color: #8b949e; border-radius: 8px; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 600; transition: 0.2s; }
         .result-btn:hover { border-color: var(--accent); }
@@ -417,7 +418,13 @@
     const stages = ['r32', 'r16', 'qf', 'sf', 'final'];
 
     // --- Nivel "Fan de la Sele" ---
-    const COLOMBIA_RIVALES = ["Portugal", "R.D. Congo", "Uzbekistán"]; // Grupo K
+    const COLOMBIA_RIVALES = ["Uzbekistán", "R.D. Congo", "Portugal"]; // Grupo K, orden cronológico
+    // Fecha y hora (en Colombia) de cada partido de la fase de grupos.
+    const COLOMBIA_FECHAS = {
+        "Uzbekistán": "Miércoles 17 de junio · 9:00 p.m. (hora de Colombia)",
+        "R.D. Congo": "Martes 23 de junio · 9:00 p.m. (hora de Colombia)",
+        "Portugal": "Sábado 27 de junio · 6:30 p.m. (hora de Colombia)"
+    };
     // Convocatoria oficial de Colombia para el Mundial 2026 (26 jugadores), agrupada por posición.
     const COLOMBIA_JUGADORES = {
         "Porteros": ["Álvaro Montero", "Camilo Vargas", "David Ospina"],
@@ -968,6 +975,7 @@
             c.innerHTML += `
                 <div class="fan-match">
                     <div class="fan-match-teams">${getFlagHTML('Colombia')} <span>Colombia</span> <span class="vs">vs</span> ${getFlagHTML(rival)} <span>${rival}</span></div>
+                    <div class="fan-match-date">📅 ${COLOMBIA_FECHAS[rival] || ''}</div>
                     <div class="fan-result-btns">
                         <button type="button" class="result-btn ${sel === 'gana' ? 'sel-win' : ''}" onclick="setFanResultado('${rival}','gana')">Gana</button>
                         <button type="button" class="result-btn ${sel === 'empata' ? 'sel-draw' : ''}" onclick="setFanResultado('${rival}','empata')">Empata</button>
