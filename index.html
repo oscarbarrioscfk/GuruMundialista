@@ -1068,11 +1068,10 @@
     async function cargarRankings() {
         const { data, error } = await dbClient
             .from('predicciones')
-            .select('usuario_real, nickname, nivel, puntos, payload');
+            .select('usuario_real, nickname, nivel, puntos');
         if (error) throw error;
 
         const filas = data || [];
-        rawFilas = filas; // guardamos las filas completas para mostrar las decisiones del usuario
         const porNivel = nivel => filas
             .filter(f => f.nivel === nivel)
             .map(f => ({ usuario_real: f.usuario_real, nickname: f.nickname, puntos: f.puntos ?? 0 }))
@@ -1106,8 +1105,24 @@
     // Estado del dashboard (para cambiar de pestaña sin volver a consultar la BD).
     let rankingsData = null;
     let dashNick = null;
-    let rawFilas = [];            // filas completas (con payload) de todas las predicciones
     let resultadosReales = null;  // contenido de la tabla 'resultados' (o null si aún no hay)
+
+    // Las predicciones del usuario se guardan en SU navegador (localStorage), nunca en una
+    // consulta pública, para no exponer el payload de nadie. Clave por nombre + nickname.
+    function clavePred(nombre, nick, nivel) { return `gm_pred::${nombre}::${nick}::${nivel}`; }
+    function guardarPredLocal(nombre, nick, nivel, payload) {
+        try { localStorage.setItem(clavePred(nombre, nick, nivel), JSON.stringify(payload)); } catch (e) {}
+    }
+    function leerPredsLocal(nombre, nick) {
+        const out = [];
+        ['fan', 'fiebre'].forEach(nivel => {
+            try {
+                const raw = localStorage.getItem(clavePred(nombre, nick, nivel));
+                if (raw) out.push({ nivel, payload: JSON.parse(raw) });
+            } catch (e) {}
+        });
+        return out;
+    }
 
     // Carga los resultados reales (si el admin ya los publicó). No falla si no existen.
     async function cargarResultadosReales() {
@@ -1167,8 +1182,12 @@
 
     function renderMisDecisiones(nombre, nick) {
         const cont = document.getElementById('mis-decisiones');
-        const filasUsuario = rawFilas.filter(f => f.usuario_real === nombre && f.nickname === nick);
-        if (!filasUsuario.length) { cont.innerHTML = ''; return; }
+        const filasUsuario = leerPredsLocal(nombre, nick);
+        if (!filasUsuario.length) {
+            // No hay copia local (p. ej. entró desde otro dispositivo): no mostramos detalle.
+            cont.innerHTML = '<p style="color:#8b949e; font-size:0.85em; border-top:1px solid var(--border-color); padding-top:20px;">📝 El detalle de tus predicciones se ve en el dispositivo donde las registraste.</p>';
+            return;
+        }
 
         const hayResultados = !!resultadosReales;
         let html = '<h3 style="border-top:1px solid var(--border-color); padding-top:20px;">📝 Mis predicciones</h3>';
@@ -1369,6 +1388,8 @@
             }
             // 'otroNivel' (calculado arriba) indica si ya tenía el otro nivel: si sí, ahora completó ambos.
             const completoAmbos = !!otroNivel;
+            // Guardar una copia en el propio navegador para mostrar las decisiones en el dashboard.
+            guardarPredLocal(payloadGuardado.usuario_real, payloadGuardado.nickname, payloadGuardado.nivel, payloadGuardado.payload);
             mostrarExitoEnModal(payloadGuardado.nivel, completoAmbos);
             enviarCorreoResumen();
         } catch (e) {
