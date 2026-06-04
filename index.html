@@ -146,6 +146,22 @@
         .welcome-box h2 { color: var(--accent); margin: 0 0 12px; font-size: 1.3em; }
         .welcome-box p { color: var(--text-main); line-height: 1.6; margin: 0 0 10px; font-size: 0.95em; }
         .welcome-box p:last-child { margin-bottom: 0; }
+
+        /* Mis decisiones en el dashboard */
+        .dec-card { background: #161b22; border: 1px solid var(--border-color); border-radius: 10px; padding: 16px 18px; margin-bottom: 16px; }
+        .dec-card h4 { margin: 0 0 12px; color: var(--text-main); }
+        .dec-row { padding: 7px 10px; border-radius: 6px; margin-bottom: 5px; font-size: 0.9em; background: #21262d; }
+        .dec-row.dec-ok { background: rgba(63,185,80,0.15); border-left: 3px solid var(--accent); }
+        .dec-row.dec-bad { background: rgba(248,81,73,0.12); border-left: 3px solid #f85149; }
+        .ok-pick { color: var(--accent); font-weight: 700; }
+        .bad-pick { color: #f85149; font-weight: 700; }
+        .bracket-lectura { display: flex; gap: 12px; overflow-x: auto; padding: 10px 2px; }
+        .bl-round { display: flex; flex-direction: column; justify-content: space-around; gap: 6px; min-width: 130px; }
+        .bl-title { color: var(--accent); font-weight: 600; font-size: 0.75em; text-align: center; margin-bottom: 4px; }
+        .bl-match { background: #21262d; border: 1px solid var(--border-color); border-radius: 6px; }
+        .bl-team { padding: 6px 8px; font-size: 0.78em; display: flex; align-items: center; gap: 5px; }
+        .bl-team.bl-ok { background: rgba(63,185,80,0.2); font-weight: 600; }
+        .bl-team.bl-bad { background: rgba(248,81,73,0.15); opacity: 0.75; }
     </style>
 </head>
 <body>
@@ -249,6 +265,8 @@
         <div id="leaderboard-hint"></div>
         <div id="leaderboard"></div>
         <p style="color:#8b949e; font-size:0.85em; margin-top:15px;">ℹ️ Los puntos se calcularán durante el Mundial. Por ahora todos aparecen en 0.</p>
+
+        <div id="mis-decisiones" style="margin-top:30px;"></div>
 
         <button class="btn" style="background:#30363d; color:white; margin-top:10px;" onclick="location.reload()">Cerrar Sesión</button>
     </div>
@@ -1050,10 +1068,11 @@
     async function cargarRankings() {
         const { data, error } = await dbClient
             .from('predicciones')
-            .select('usuario_real, nickname, nivel, puntos');
+            .select('usuario_real, nickname, nivel, puntos, payload');
         if (error) throw error;
 
         const filas = data || [];
+        rawFilas = filas; // guardamos las filas completas para mostrar las decisiones del usuario
         const porNivel = nivel => filas
             .filter(f => f.nivel === nivel)
             .map(f => ({ usuario_real: f.usuario_real, nickname: f.nickname, puntos: f.puntos ?? 0 }))
@@ -1087,6 +1106,17 @@
     // Estado del dashboard (para cambiar de pestaña sin volver a consultar la BD).
     let rankingsData = null;
     let dashNick = null;
+    let rawFilas = [];            // filas completas (con payload) de todas las predicciones
+    let resultadosReales = null;  // contenido de la tabla 'resultados' (o null si aún no hay)
+
+    // Carga los resultados reales (si el admin ya los publicó). No falla si no existen.
+    async function cargarResultadosReales() {
+        try {
+            const { data, error } = await dbClient.from('resultados').select('data').eq('id', 1).maybeSingle();
+            if (error) { resultadosReales = null; return; }
+            resultadosReales = data && data.data ? data.data : null;
+        } catch (e) { resultadosReales = null; }
+    }
 
     async function hacerLoginReal(nombre, nick) {
         const btn = document.getElementById('main-action-btn');
@@ -1106,6 +1136,7 @@
                 return;
             }
             rankingsData = r; dashNick = nick;
+            await cargarResultadosReales();
             document.getElementById('step-1').classList.add('hidden');
             document.getElementById('prediction-flow').classList.add('hidden');
             document.getElementById('fan-flow').classList.add('hidden');
@@ -1113,6 +1144,7 @@
             document.getElementById('dashboard-view').classList.remove('hidden');
             document.getElementById('dash-nick').innerText = nick;
             renderDashPersonal(r, nick);
+            renderMisDecisiones(nombre, nick);
             // Pestaña inicial: el nivel que la persona jugó (preferimos Fiebre si jugó ambos).
             switchRankingTab(enFiebre ? 'fiebre' : 'fan');
             document.getElementById('dashboard-view').scrollIntoView({ behavior: 'smooth' });
@@ -1121,6 +1153,139 @@
             alert("❌ Error de red.");
             btn.innerText = 'Entrar a mi Tablero'; btn.disabled = false;
         }
+    }
+
+    // ============ MIS DECISIONES (lo que el usuario eligió, con aciertos) ============
+    function marca(acerto) {
+        if (acerto === null || acerto === undefined) return '';
+        return acerto ? ' <span class="ok-pick">✓</span>' : ' <span class="bad-pick">✗</span>';
+    }
+    function claseLinea(acerto) {
+        if (acerto === null || acerto === undefined) return 'dec-row';
+        return acerto ? 'dec-row dec-ok' : 'dec-row dec-bad';
+    }
+
+    function renderMisDecisiones(nombre, nick) {
+        const cont = document.getElementById('mis-decisiones');
+        const filasUsuario = rawFilas.filter(f => f.usuario_real === nombre && f.nickname === nick);
+        if (!filasUsuario.length) { cont.innerHTML = ''; return; }
+
+        const hayResultados = !!resultadosReales;
+        let html = '<h3 style="border-top:1px solid var(--border-color); padding-top:20px;">📝 Mis predicciones</h3>';
+        if (!hayResultados) {
+            html += '<p style="color:#8b949e; font-size:0.85em;">Aún no se han cargado resultados del Mundial. Aquí ves lo que elegiste; cuando empiecen los partidos verás también qué acertaste (✓) y qué no (✗).</p>';
+        } else {
+            html += '<p style="color:#8b949e; font-size:0.85em;">✓ = acertaste · ✗ = no se dio · sin marca = aún sin definir.</p>';
+        }
+
+        filasUsuario.forEach((fila, i) => {
+            if (fila.nivel === 'fan') html += bloqueFan(fila.payload);
+            else html += bloqueFiebre(fila.payload, i);
+        });
+        cont.innerHTML = html;
+        filasUsuario.forEach((fila, i) => {
+            if (fila.nivel === 'fiebre' && fila.payload && fila.payload.bracket) {
+                dibujarBracketLectura(fila.payload.bracket, 'bracket-lectura-' + i);
+            }
+        });
+    }
+
+    function bloqueFan(p) {
+        if (!p) return '';
+        const R = resultadosReales;
+        const etiq = { gana: 'Gana', empata: 'Empata', pierde: 'Pierde' };
+        let h = '<div class="dec-card"><h4>🇨🇴 Fan de la Sele</h4>';
+        COLOMBIA_RIVALES.forEach(r => {
+            const miPick = p.partidos ? p.partidos[r] : null;
+            let acerto = null;
+            if (R && R.colombiaPartidos && R.colombiaPartidos[r]) acerto = (miPick === R.colombiaPartidos[r]);
+            h += `<div class="${claseLinea(acerto)}">Colombia vs ${r}: <strong>${etiq[miPick] || '—'}</strong>${marca(acerto)}</div>`;
+        });
+        let acPos = null;
+        if (R) acPos = (p.posicionGrupo === posColombiaReal(R));
+        h += `<div class="${claseLinea(acPos)}">Posición de Colombia en el grupo: <strong>${p.posicionGrupo || '—'}</strong>${marca(acPos)}</div>`;
+        let acLlega = null;
+        if (R) acLlega = (p.posicion === colombiaLlegaHastaReal(R));
+        h += `<div class="${claseLinea(acLlega)}">Colombia llega hasta: <strong>${p.posicion || '—'}</strong>${marca(acLlega)}</div>`;
+        let acGol = null;
+        if (R && R.colombiaGoleador) acGol = (p.goleador === R.colombiaGoleador);
+        h += `<div class="${claseLinea(acGol)}">Último goleador: <strong>${p.goleador || '—'}</strong>${marca(acGol)}</div>`;
+        let acCamp = null;
+        if (R && R.campeon) acCamp = (p.campeon === R.campeon);
+        h += `<div class="${claseLinea(acCamp)}">Campeón del Mundial: <strong>${p.campeon || '—'}</strong>${marca(acCamp)}</div>`;
+        h += '</div>';
+        return h;
+    }
+
+    function bloqueFiebre(p, idx) {
+        if (!p) return '';
+        const R = resultadosReales;
+        const champ = p.bracket && p.bracket.final && p.bracket.final[0] ? p.bracket.final[0].winner : null;
+        const bronce = p.bracket && p.bracket.third && p.bracket.third[0] ? p.bracket.third[0].winner : null;
+        let acCamp = null, acBronce = null;
+        if (R && R.campeon) acCamp = (champ === R.campeon);
+        if (R && R.tercerPuesto) acBronce = (bronce === R.tercerPuesto);
+        let h = '<div class="dec-card"><h4>🔥 Fiebre del Mundial</h4>';
+        h += `<div class="${claseLinea(acCamp)}">🏆 Campeón: <strong>${champ || '—'}</strong>${marca(acCamp)}</div>`;
+        h += `<div class="${claseLinea(acBronce)}">🥉 Tercer puesto: <strong>${bronce || '—'}</strong>${marca(acBronce)}</div>`;
+        h += '<p style="color:#8b949e; font-size:0.82em; margin:12px 0 6px;">Tu cuadro completo:</p>';
+        h += `<div class="bracket-lectura" id="bracket-lectura-${idx}"></div>`;
+        h += '</div>';
+        return h;
+    }
+
+    function posColombiaReal(R) {
+        const g = (R.grupos && R.grupos.K) || {};
+        if (g.primero === 'Colombia') return '1°';
+        if (g.segundo === 'Colombia') return '2°';
+        if (g.tercero === 'Colombia') return '3°';
+        return '4°';
+    }
+    function colombiaLlegaHastaReal(R) {
+        const pos = posColombiaReal(R);
+        const clasifico = (pos === '1°' || pos === '2°') || (pos === '3°' && (R.mejoresTerceros || []).includes('Colombia'));
+        if (!clasifico) return 'No pasa de fase de grupos';
+        const B = R.bracketReal;
+        if (!B) return 'Ronda de 32';
+        const enConj = ronda => { const s = new Set(); (ronda || []).forEach(m => { if (m) { if (m.t1) s.add(m.t1); if (m.t2) s.add(m.t2); } }); return s; };
+        const champ = B.final && B.final[0] && B.final[0].winner;
+        if (champ === 'Colombia') return 'Campeona';
+        if (enConj(B.final).has('Colombia')) return 'Subcampeona (pierde la final)';
+        if (enConj(B.sf).has('Colombia')) return 'Semifinal';
+        if (enConj(B.qf).has('Colombia')) return 'Cuartos de final';
+        if (enConj(B.r16).has('Colombia')) return 'Octavos de final';
+        return 'Ronda de 32';
+    }
+
+    function dibujarBracketLectura(bracket, contId) {
+        const c = document.getElementById(contId);
+        if (!c || !bracket) return;
+        const R = resultadosReales;
+        const real = R && R.bracketReal ? R.bracketReal : null;
+        const titulos = ['Ronda de 32', 'Octavos', 'Cuartos', 'Semis', 'Final'];
+        const stagesL = ['r32', 'r16', 'qf', 'sf', 'final'];
+        const ganadoresReales = stage => {
+            const s = new Set();
+            if (!real) return s;
+            (real[stage] || []).forEach(m => { if (m && m.winner) s.add(m.winner); });
+            return s;
+        };
+        c.innerHTML = '';
+        stagesL.forEach((s, sIdx) => {
+            const col = document.createElement('div'); col.className = 'bl-round';
+            col.innerHTML = `<div class="bl-title">${titulos[sIdx]}</div>`;
+            (bracket[s] || []).forEach(m => {
+                const box = document.createElement('div'); box.className = 'bl-match';
+                const w = m ? m.winner : null;
+                let cls = '';
+                if (real && w) {
+                    cls = ganadoresReales(s).has(w) ? 'bl-ok' : 'bl-bad';
+                }
+                box.innerHTML = `<div class="bl-team ${cls}">${getFlagHTML(w)} ${w || '—'}</div>`;
+                col.appendChild(box);
+            });
+            c.appendChild(col);
+        });
     }
 
     // Tarjetas con la posición personal del usuario en cada ranking que juega.
