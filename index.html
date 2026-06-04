@@ -928,7 +928,7 @@
         }
     }
 
-    function validarYComenzar() {
+    async function validarYComenzar() {
         const nombre = document.getElementById('userSelect').value;
         const nick = document.getElementById('nickname').value.trim();
         if (isLoginMode) {
@@ -943,11 +943,45 @@
         if (nicknameEsInapropiado(nick)) return alert("⚠️ Ese nickname no está permitido. Por favor elige otro.");
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return alert("⚠️ Escribe un correo electrónico válido.");
         if (email.toLowerCase() !== email2.toLowerCase()) return alert("⚠️ Los dos correos no coinciden. Revísalos: este correo es la forma de recuperar tu cuenta.");
+
+        // Verificar contra la base que el nickname no esté ya tomado por OTRA persona.
+        const btn = document.getElementById('main-action-btn');
+        const textoOriginal = btn.innerText;
+        btn.disabled = true; btn.innerText = 'Verificando…';
+        try {
+            const disponible = await nicknameDisponible(nick, nombre);
+            if (!disponible) {
+                btn.disabled = false; btn.innerText = textoOriginal;
+                return alert(`⚠️ El nickname "${nick}" ya está en uso por otra persona. Por favor elige uno diferente (puedes usar el dado 🎲 para generar uno).`);
+            }
+        } catch (e) {
+            // Si la verificación falla (p. ej. sin conexión), dejamos continuar:
+            // la base igual tiene una salvaguarda al guardar que evita duplicados por nivel.
+            console.error('No se pudo verificar el nickname:', e);
+        }
+        btn.disabled = false; btn.innerText = textoOriginal;
+
         // Mostrar el selector de nivel.
         const sel = document.getElementById('step-nivel');
         sel.classList.remove('hidden');
         sel.classList.add('active');
         sel.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ¿El nickname está libre? Lo está si nadie lo usa, o si solo lo usa ESTA misma persona
+    // (mismo nombre real) jugando su otro nivel.
+    async function nicknameDisponible(nick, nombre) {
+        if (!dbClient) return true; // sin conexión, no bloqueamos aquí
+        const { data, error } = await dbClient
+            .from('predicciones')
+            .select('usuario_real, nickname');
+        if (error) throw error;
+        const objetivo = nick.trim().toLowerCase();
+        const choque = (data || []).some(f =>
+            (f.nickname || '').trim().toLowerCase() === objetivo &&
+            f.usuario_real !== nombre
+        );
+        return !choque;
     }
 
     // ==========================================
