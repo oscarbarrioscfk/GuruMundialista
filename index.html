@@ -357,6 +357,7 @@
     let dbClient = null;
     let isLoginMode = false;
     let payloadGuardado = null;
+    let guardadoLocalOk = true; // si la copia local de la predicción se pudo guardar
     let bracketGenerado = false; // bandera para blindar el flujo
 
     const teamData = {
@@ -739,8 +740,11 @@
         document.getElementById('modal-confirm').classList.add('hidden');
         const exito = document.getElementById('modal-success');
         exito.classList.remove('hidden');
+        const avisoLocal = guardadoLocalOk
+            ? `<p style="background:#21262d; border-left:3px solid var(--accent); border-radius:6px; padding:10px 12px; font-size:0.82em; color:#8b949e; margin-bottom:16px;">💾 El <strong>detalle</strong> de tu predicción quedó guardado en <strong>este navegador</strong>. Para verlo después, entra desde el mismo dispositivo y navegador (evita ventanas privadas/incógnito). Tu puntaje y posición sí se ven desde cualquier lado.</p>`
+            : `<p style="background:#3d2222; border-left:3px solid #f85149; border-radius:6px; padding:10px 12px; font-size:0.82em; color:#f0b8b8; margin-bottom:16px;">⚠️ Tu predicción se guardó en la nube correctamente, pero este navegador no permite guardar el detalle localmente (puede ser una ventana privada o ajustes de privacidad). Podrás ver tu puntaje y posición, pero no el detalle visual de tus elecciones.</p>`;
         exito.innerHTML = `<h2>✅ ¡Predicción Guardada!</h2>
-            <div id="champ-stat" style="margin-bottom:18px;"></div>${cuerpo}`;
+            <div id="champ-stat" style="margin-bottom:18px;"></div>${avisoLocal}${cuerpo}`;
         mostrarEstadisticaCampeon(payloadGuardado.campeon);
     }
 
@@ -1109,9 +1113,20 @@
 
     // Las predicciones del usuario se guardan en SU navegador (localStorage), nunca en una
     // consulta pública, para no exponer el payload de nadie. Clave por nombre + nickname.
+    // Comprueba de forma confiable si el navegador permite guardar datos localmente.
+    // No intenta "detectar incógnito" (poco fiable); solo verifica si el almacenamiento funciona.
+    function almacenamientoDisponible() {
+        try {
+            const t = '__gm_test__';
+            localStorage.setItem(t, '1');
+            localStorage.removeItem(t);
+            return true;
+        } catch (e) { return false; }
+    }
     function clavePred(nombre, nick, nivel) { return `gm_pred::${nombre}::${nick}::${nivel}`; }
     function guardarPredLocal(nombre, nick, nivel, payload) {
-        try { localStorage.setItem(clavePred(nombre, nick, nivel), JSON.stringify(payload)); } catch (e) {}
+        try { localStorage.setItem(clavePred(nombre, nick, nivel), JSON.stringify(payload)); return true; }
+        catch (e) { return false; }
     }
     function leerPredsLocal(nombre, nick) {
         const out = [];
@@ -1184,8 +1199,15 @@
         const cont = document.getElementById('mis-decisiones');
         const filasUsuario = leerPredsLocal(nombre, nick);
         if (!filasUsuario.length) {
-            // No hay copia local (p. ej. entró desde otro dispositivo): no mostramos detalle.
-            cont.innerHTML = '<p style="color:#8b949e; font-size:0.85em; border-top:1px solid var(--border-color); padding-top:20px;">📝 El detalle de tus predicciones se ve en el dispositivo donde las registraste.</p>';
+            // No hay copia local: explicamos las razones posibles según el caso.
+            const motivo = !almacenamientoDisponible()
+                ? 'Este navegador no permite guardar datos (posiblemente una ventana privada/incógnito o ajustes de privacidad).'
+                : 'No encontramos una copia en este navegador. Esto pasa si registraste tu predicción en otro dispositivo o navegador, en una ventana privada/incógnito, o si borraste los datos del navegador.';
+            cont.innerHTML = `<div style="border-top:1px solid var(--border-color); padding-top:20px;">
+                <h3>📝 Mis predicciones</h3>
+                <p style="color:#8b949e; font-size:0.88em;">${motivo}</p>
+                <p style="color:#8b949e; font-size:0.88em;">Tu <strong>puntaje y posición</strong> (arriba) sí están disponibles desde cualquier lugar. Para ver el detalle de tus elecciones, entra desde el mismo dispositivo y navegador donde las registraste.</p>
+            </div>`;
             return;
         }
 
@@ -1389,7 +1411,7 @@
             // 'otroNivel' (calculado arriba) indica si ya tenía el otro nivel: si sí, ahora completó ambos.
             const completoAmbos = !!otroNivel;
             // Guardar una copia en el propio navegador para mostrar las decisiones en el dashboard.
-            guardarPredLocal(payloadGuardado.usuario_real, payloadGuardado.nickname, payloadGuardado.nivel, payloadGuardado.payload);
+            guardadoLocalOk = guardarPredLocal(payloadGuardado.usuario_real, payloadGuardado.nickname, payloadGuardado.nivel, payloadGuardado.payload);
             mostrarExitoEnModal(payloadGuardado.nivel, completoAmbos);
             enviarCorreoResumen();
         } catch (e) {
