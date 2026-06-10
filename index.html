@@ -986,20 +986,25 @@
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return alert("⚠️ Escribe un correo electrónico válido.");
         if (email.toLowerCase() !== email2.toLowerCase()) return alert("⚠️ Los dos correos no coinciden. Revísalos: este correo es la forma de recuperar tu cuenta.");
 
-        // Verificar contra la base que el nickname no esté ya tomado por OTRA persona.
+        // Verificar contra la base: (1) que el nickname no esté tomado por OTRA persona,
+        // y (2) que esta persona no tenga ya un nickname distinto (una persona = un solo nickname).
         const btn = document.getElementById('main-action-btn');
         const textoOriginal = btn.innerText;
         btn.disabled = true; btn.innerText = 'Verificando…';
         try {
-            const disponible = await nicknameDisponible(nick, nombre);
-            if (!disponible) {
+            const chequeo = await verificarIdentidad(nick, nombre);
+            if (chequeo.estado === 'nick_de_otro') {
                 btn.disabled = false; btn.innerText = textoOriginal;
                 return alert(`⚠️ El nickname "${nick}" ya está en uso por otra persona. Por favor elige uno diferente (puedes usar el dado 🎲 para generar uno).`);
+            }
+            if (chequeo.estado === 'ya_registrado') {
+                btn.disabled = false; btn.innerText = textoOriginal;
+                return alert(`⚠️ Ya tienes una predicción registrada con este nombre. Cada persona participa con un solo nickname.\n\nPara jugar el otro nivel, vuelve a entrar usando ese mismo nickname. Si necesitas cambiarlo, escribe al organizador.`);
             }
         } catch (e) {
             // Si la verificación falla (p. ej. sin conexión), dejamos continuar:
             // la base igual tiene una salvaguarda al guardar que evita duplicados por nivel.
-            console.error('No se pudo verificar el nickname:', e);
+            console.error('No se pudo verificar la identidad:', e);
         }
         btn.disabled = false; btn.innerText = textoOriginal;
 
@@ -1010,20 +1015,34 @@
         sel.scrollIntoView({ behavior: 'smooth' });
     }
 
-    // ¿El nickname está libre? Lo está si nadie lo usa, o si solo lo usa ESTA misma persona
-    // (mismo nombre real) jugando su otro nivel.
-    async function nicknameDisponible(nick, nombre) {
-        if (!dbClient) return true; // sin conexión, no bloqueamos aquí
+    // Verifica la identidad contra la base. Devuelve uno de estos estados:
+    //   'nick_de_otro'  → el nickname ya lo usa otra persona.
+    //   'ya_registrado' → esta persona ya tiene un nickname distinto (regla: un nickname por persona).
+    //   'ok'            → puede continuar (sin registro previo, o reusando su mismo nickname).
+    async function verificarIdentidad(nick, nombre) {
+        if (!dbClient) return { estado: 'ok' };
         const { data, error } = await dbClient
             .from('predicciones')
             .select('usuario_real, nickname');
         if (error) throw error;
         const objetivo = nick.trim().toLowerCase();
-        const choque = (data || []).some(f =>
+        const filas = data || [];
+        // (1) ¿El nickname pertenece a otra persona?
+        const choqueOtro = filas.some(f =>
             (f.nickname || '').trim().toLowerCase() === objetivo &&
             f.usuario_real !== nombre
         );
-        return !choque;
+        if (choqueOtro) return { estado: 'nick_de_otro' };
+        // (2) ¿Esta persona ya tiene un nickname registrado?
+        const mias = filas.filter(f => f.usuario_real === nombre && f.nickname);
+        if (mias.length) {
+            const nickExistente = mias[0].nickname;
+            // Si el nickname que intenta usar NO coincide con el que ya tiene → bloquear.
+            if (nickExistente.trim().toLowerCase() !== objetivo) {
+                return { estado: 'ya_registrado', nickExistente };
+            }
+        }
+        return { estado: 'ok' };
     }
 
     // ==========================================
@@ -1475,6 +1494,18 @@
                 }
             }
 
+            // Barrera final (regla: un nickname por persona): si esta persona ya tiene
+            // predicciones con un nickname DISTINTO, no permitir registrar otro.
+            const { data: todasMias } = await dbClient.from('predicciones')
+                .select('nickname')
+                .eq('usuario_real', payloadGuardado.usuario_real);
+            const conOtroNick = (todasMias || []).find(r =>
+                (r.nickname || '').trim().toLowerCase() !== (payloadGuardado.nickname || '').trim().toLowerCase());
+            if (conOtroNick) {
+                btn.innerText = "Guardar en BD Oficial"; btn.disabled = false;
+                return alert(`⚠️ Ya tienes una predicción registrada con este nombre. Cada persona participa con un solo nickname.\n\nPara jugar el otro nivel, vuelve a entrar usando ese mismo nickname. Si necesitas cambiarlo, escribe al organizador.`);
+            }
+
             // Sin .select() encadenado: el insert no intenta devolver el payload (protegido por RLS).
             const { error } = await dbClient.from('predicciones').insert([payloadGuardado]);
             if (error) {
@@ -1526,6 +1557,6 @@
     });
 </script>
 
-<div id="version-tag" style="position:fixed; bottom:8px; right:10px; font-size:0.7em; color:#6e7681; font-family:monospace; z-index:50; pointer-events:none;">v1.1 · 2026-06-10</div>
+<div id="version-tag" style="position:fixed; bottom:8px; right:10px; font-size:0.7em; color:#6e7681; font-family:monospace; z-index:50; pointer-events:none;">v1.3 · 2026-06-10</div>
 </body>
 </html>
