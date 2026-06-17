@@ -194,6 +194,9 @@
 
     <div class="card active" id="step-1">
         <h2>1. Identidad</h2>
+        <div id="registro-cerrado-aviso" class="hidden" style="background:#21262d; border-left:4px solid var(--accent); border-radius:10px; padding:16px 18px; margin-bottom:18px;">
+            <p style="margin:0; color:var(--text-main); line-height:1.5;">🔒 <strong>El registro de predicciones está cerrado.</strong> ¡El Mundial ya comenzó! Ya no se pueden enviar ni modificar predicciones, pero puedes <strong>entrar a tu tablero</strong> para seguir tu puntaje y posición. ¡Mucha suerte! 🏆</p>
+        </div>
         <div class="mode-toggle">
             <button class="mode-btn active" id="btn-new" onclick="toggleMode('new')">Nueva Predicción</button>
             <button class="mode-btn" id="btn-login" onclick="toggleMode('login')">Ver mi Ranking (Login)</button>
@@ -396,6 +399,10 @@
     // ==========================================
     // PARTE 1: DATOS GLOBALES
     // ==========================================
+    // 🔒 INTERRUPTOR DE REGISTRO
+    // Cambia a false para CERRAR el envío de nuevas predicciones (solo queda el tablero de consulta).
+    const REGISTRO_ABIERTO = false;
+
     let dbClient = null;
     let isLoginMode = false;
     let payloadGuardado = null;
@@ -925,7 +932,20 @@
         if (easter) easter.innerText = `✨ ${fig[1]}`;
     }
 
+    // Aplica el cierre de registro: si está cerrado, solo se permite consultar el tablero.
+    function aplicarEstadoRegistro() {
+        if (REGISTRO_ABIERTO) return;
+        // Ocultar la opción de nueva predicción y forzar modo "ver mi tablero".
+        const btnNew = document.getElementById('btn-new');
+        if (btnNew) btnNew.style.display = 'none';
+        const aviso = document.getElementById('registro-cerrado-aviso');
+        if (aviso) aviso.classList.remove('hidden');
+        toggleMode('login');
+    }
+
     function toggleMode(mode) {
+        // Con el registro cerrado, no se puede entrar al modo "nueva predicción".
+        if (!REGISTRO_ABIERTO) mode = 'login';
         isLoginMode = mode === 'login';
         document.getElementById('btn-new').classList.toggle('active', !isLoginMode);
         document.getElementById('btn-login').classList.toggle('active', isLoginMode);
@@ -977,6 +997,10 @@
             if (!nombre || !nick) return alert("⚠️ Completa tu nombre y nickname.");
             hacerLoginReal(nombre, nick);
             return;
+        }
+        // Barrera dura: si el registro está cerrado, no se aceptan nuevas predicciones.
+        if (!REGISTRO_ABIERTO) {
+            return alert("⚠️ El registro de predicciones ya está cerrado. ¡El Mundial comenzó! Puedes entrar a 'Ver mi Ranking' para consultar tu tablero.");
         }
         // Modo nueva predicción: nombre, correo y nickname obligatorios.
         const email = document.getElementById('useremail').value.trim();
@@ -1542,6 +1566,7 @@
     // ==========================================
     document.addEventListener('DOMContentLoaded', async () => {
         renderizarGrupos();
+        aplicarEstadoRegistro();
         try {
             if (!window.supabase) throw new Error("Supabase no cargó");
             dbClient = window.supabase.createClient(supabaseUrl, supabaseKey);
@@ -1557,6 +1582,6 @@
     });
 </script>
 
-<div id="version-tag" style="position:fixed; bottom:8px; right:10px; font-size:0.7em; color:#6e7681; font-family:monospace; z-index:50; pointer-events:none;">v1.3 · 2026-06-10</div>
+<div id="version-tag" style="position:fixed; bottom:8px; right:10px; font-size:0.7em; color:#6e7681; font-family:monospace; z-index:50; pointer-events:none;">v1.4 · 2026-06-17 · registro cerrado</div>
 </body>
 </html>
