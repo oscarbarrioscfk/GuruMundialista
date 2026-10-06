@@ -19,6 +19,7 @@ ya contiene todo lo que un *skill tree* necesita. La herramienta solo lo reorgan
 | En el póster BC | En el árbol de habilidades | En un curso de FP |
 |---|---|---|
 | Pensamiento computacional (título) | **Raíz** del árbol | El curso / la cualificación |
+| Categorías principales (Conceptos…, Prácticas…, Ciudadanía digital) | **Categorías** que agrupan ramas y terminan en un **perfil** (Programador(a), Innovador(a) con la tecnología, Ciudadano(a) digital) | Perfiles de egreso |
 | Ejes (Algoritmos…, Lógica…, Datos…) | **Ramas** (cada una con color e ícono) | Áreas de competencia |
 | Grados (Transición, 1°…11°) | **Anillos / niveles** de profundidad | Módulos o trimestres |
 | Guías (p. ej. *6.3 Invernaderos*) | **Nodos de misión** | Unidades didácticas |

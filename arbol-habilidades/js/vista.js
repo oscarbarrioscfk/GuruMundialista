@@ -10,9 +10,11 @@ const Vista = (() => {
   };
   // Radial
   const HUECO = 30 * Math.PI / 180;     // hueco superior para las etiquetas de nivel
+  const HUECO_CAT = 5 * Math.PI / 180;  // separación entre categorías
+  const R_PERFIL = 128;                 // radio del círculo de cada perfil
   const R0 = 230, DR = 74, R_RAIZ = 110;
   // Póster
-  const COL_X0 = 320, COL_W = 238, TARJ_W = 214, FILA_Y0 = 78, FILA_MIN = 120;
+  const COL_X0_BASE = 320, ANCHO_CAT = 64, COL_W = 238, TARJ_W = 214, FILA_Y0 = 78, FILA_MIN = 120;
   // Zoom semántico
   const UMBRAL_MEDIO = 0.55, UMBRAL_CERCA = 1.5;
 
@@ -98,6 +100,21 @@ const Vista = (() => {
     .hay-foco .nodo:not(.en-foco) { opacity: .12; }
     .hay-ruta .nodo:not(.en-ruta) { opacity: .14; }
 
+    .cuna-categoria { opacity: .55; }
+    .arco-categoria { opacity: .95; }
+    .texto-categoria { fill: #fff; font-weight: 900; font-size: 22px; letter-spacing: .02em; }
+    .rama-a-perfil { fill: none; stroke-width: 12; stroke-linecap: round; opacity: .3; }
+    .perfil { cursor: pointer; }
+    .perfil .disco { stroke-width: 6; }
+    .perfil .avatar { fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+    .perfil .nombre-perfil { font-weight: 900; font-size: 46px; text-anchor: middle; }
+    .perfil .dato-perfil { font-weight: 700; font-size: 24px; text-anchor: middle; }
+    .perfil .avance-fondo, .perfil .avance, .perfil .etapa { display: none; }
+    .modo-estudiante .perfil .avance-fondo { display: inline; fill: #EEE; }
+    .modo-estudiante .perfil .avance { display: inline; }
+    .modo-estudiante .perfil .etapa { display: inline; font-weight: 900; font-size: 28px; text-anchor: middle; }
+    .hay-foco .perfil:not(.en-foco) { opacity: .25; }
+    .franja-categoria text { font-weight: 900; font-size: 15px; text-anchor: middle; }
     .modo-edicion .nodo { cursor: crosshair; }
     .linea-conexion { fill: none; stroke: ${C.morado}; stroke-width: 2.5; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; pointer-events: none; }
     .nodo.destino-conexion .halo { stroke: ${C.azul}; opacity: .9; stroke-width: 7; }
@@ -133,9 +150,19 @@ const Vista = (() => {
       const maxCelda = d3.max(propios, n => celdas.get(`${i}|${n._nivel}`).length) || 0;
       return 1 + 0.5 * maxCelda + 0.05 * propios.length;
     });
-    const total = d3.sum(pesos), util = 2 * Math.PI - HUECO;
+    const orden = m.ordenRamas || m.proyecto.ramas.map((_, i) => i);
+    const catDe = i => m.proyecto.ramas[i].categoria && m.catIdx?.has(m.proyecto.ramas[i].categoria) ? m.proyecto.ramas[i].categoria : null;
+    const cortes = m.categorias?.length ? orden.filter((i, k) => k > 0 && catDe(i) !== catDe(orden[k - 1])).length : 0;
+    const total = d3.sum(pesos), util = 2 * Math.PI - HUECO - cortes * HUECO_CAT;
     const anchos = pesos.map(p => util * p / total);
-    const inicios = anchos.map((_, i) => -Math.PI / 2 + HUECO / 2 + d3.sum(anchos.slice(0, i)));
+    const inicioTotal = -Math.PI / 2 + HUECO / 2;
+    const inicios = [];
+    let acum = inicioTotal;
+    orden.forEach((i, k) => {
+      if (k > 0 && m.categorias?.length && catDe(i) !== catDe(orden[k - 1])) acum += HUECO_CAT;
+      inicios[i] = acum;
+      acum += anchos[i];
+    });
     const angRama = i => inicios[i] + anchos[i] / 2;
     const anchoRama = i => anchos[i];
     const radio = j => R0 + j * DR;
@@ -154,7 +181,16 @@ const Vista = (() => {
       });
     });
     const rMax = radio(nN - 1);
-    return { anchoRama, angRama, radio, rMax, inicios, anchos, rRotulo: rMax + DR * 0.5 + 120 };
+    const rRotulo = rMax + DR * 0.5 + 120;
+    const cats = (m.categorias || []).map(c => {
+      const idx = m.proyecto.ramas.map((r, i) => (r.categoria === c.id ? i : -1)).filter(i => i >= 0);
+      if (!idx.length) return null;
+      const a0 = Math.min(...idx.map(i => inicios[i])), a1 = Math.max(...idx.map(i => inicios[i] + anchos[i]));
+      const mid = (a0 + a1) / 2;
+      // Los perfiles laterales se alejan más: ahí los rótulos de rama se extienden en horizontal.
+      return { cat: c, idx, a0, a1, mid, r: rRotulo + 330 + 230 * Math.cos(mid) ** 2 };
+    }).filter(Boolean);
+    return { anchoRama, angRama, radio, rMax, inicios, anchos, inicioTotal, rRotulo, cats };
   }
 
   function lineasPoster(n) {
@@ -168,9 +204,11 @@ const Vista = (() => {
 
   function disponerPoster(m) {
     const { ramas, niveles } = m.proyecto;
+    const COL_X0 = COL_X0_BASE + (m.categorias?.length ? ANCHO_CAT : 0);
     const filas = [];
     let y = FILA_Y0;
-    ramas.forEach((r, i) => {
+    (m.ordenRamas || ramas.map((_, i) => i)).forEach(i => {
+      const r = ramas[i];
       const enFila = m.nodos.filter(n => n._rama === i);
       const porNivel = d3.group(enFila, n => n._nivel);
       let alto = FILA_MIN;
@@ -187,10 +225,14 @@ const Vista = (() => {
           yy += altoTarjeta(n) + 12;
         });
       });
-      filas.push({ rama: r, i, y, alto });
+      filas.push({ rama: r, i, k: filas.length, y, alto });
       y += alto;
     });
-    return { filas, ancho: COL_X0 + niveles.length * COL_W + 20, alto: y + 30 };
+    const franjas = (m.categorias || []).map(c => {
+      const fs = filas.filter(f => f.rama.categoria === c.id);
+      return fs.length ? { cat: c, y: fs[0].y, alto: d3.sum(fs, f => f.alto) } : null;
+    }).filter(Boolean);
+    return { filas, franjas, x0: COL_X0, ancho: COL_X0 + niveles.length * COL_W + 20, alto: y + 30 };
   }
 
   // ── Geometría de aristas ────────────────────────────────────────
@@ -221,7 +263,7 @@ const Vista = (() => {
     const t = radio * 1.05;
     g.append('use').attr('href', `#ico-${rama.icono || 'generico'}`)
       .attr('class', 'insignia-icono').attr('x', -t / 2).attr('y', -t / 2).attr('width', t).attr('height', t)
-      .attr('stroke', C.morado).attr('fill', C.morado);
+      .attr('stroke', C.morado).attr('fill', C.morado).attr('color', C.morado);
   }
 
   // ── Fábrica ─────────────────────────────────────────────────────
@@ -286,13 +328,31 @@ const Vista = (() => {
       niveles.forEach((nv, j) => capaRadial.append('circle').attr('class', 'anillo').attr('r', geoR.radio(j)));
       const rIn = geoR.radio(0) - DR / 2, rOut = geoR.rMax + DR / 2;
       ramas.forEach((r, i) => {
-        const ang = geoR.angRama(i) - geoR.anchoRama(i) / 2;
-        const p1 = polar(ang, rIn), p2 = polar(ang, rOut);
-        capaRadial.append('line').attr('class', 'separador').attr('x1', p1.x).attr('y1', p1.y).attr('x2', p2.x).attr('y2', p2.y);
+        [geoR.inicios[i], geoR.inicios[i] + geoR.anchos[i]].forEach(ang => {
+          const p1 = polar(ang, rIn), p2 = polar(ang, rOut);
+          capaRadial.append('line').attr('class', 'separador').attr('x1', p1.x).attr('y1', p1.y).attr('x2', p2.x).attr('y2', p2.y);
+        });
       });
-      const angFin = geoR.angRama(ramas.length - 1) + geoR.anchoRama(ramas.length - 1) / 2;
-      const ultimo = polar(angFin, rIn), fin = polar(angFin, rOut);
-      capaRadial.append('line').attr('class', 'separador').attr('x1', ultimo.x).attr('y1', ultimo.y).attr('x2', fin.x).attr('y2', fin.y);
+
+      // Categorías: cuña de color, arco con el nombre y perfil al que convergen sus ramas
+      const aD3 = a => a + Math.PI / 2;
+      geoR.cats.forEach(c => {
+        capaRadial.insert('path', '.anillo').attr('class', 'cuna-categoria').attr('fill', c.cat.tinte || '#EEF2F8')
+          .attr('d', d3.arc()({ innerRadius: rIn, outerRadius: rOut, startAngle: aD3(c.a0), endAngle: aD3(c.a1) }));
+        const r1 = rOut + 14, r2 = r1 + 42, rm = (r1 + r2) / 2;
+        capaRadial.append('path').attr('class', 'arco-categoria').attr('fill', c.cat.color || C.ciruela)
+          .attr('d', d3.arc().cornerRadius(10)({ innerRadius: r1, outerRadius: r2, startAngle: aD3(c.a0), endAngle: aD3(c.a1) }));
+        const abajo = Math.sin(c.mid) > 0.15;
+        const largo = c.a1 - c.a0 > Math.PI ? 1 : 0;
+        const pA = polar(abajo ? c.a1 : c.a0, rm + (abajo ? 8 : -8)), pB = polar(abajo ? c.a0 : c.a1, rm + (abajo ? 8 : -8));
+        const idArco = `arco-cat-${Modelo.normalizar(c.cat.id)}`;
+        capaRadial.append('path').attr('id', idArco).attr('fill', 'none')
+          .attr('d', `M${pA.x},${pA.y}A${rm},${rm} 0 ${largo} ${abajo ? 0 : 1} ${pB.x},${pB.y}`);
+        const caben = Math.floor((c.a1 - c.a0) * rm / 13);
+        capaRadial.append('text').attr('class', 'texto-categoria').append('textPath')
+          .attr('href', `#${idArco}`).attr('startOffset', '50%').attr('text-anchor', 'middle')
+          .text(recortar(c.cat.nombre, Math.max(8, caben)));
+      });
 
       // Troncos: de la raíz a cada rama
       ramas.forEach((r, i) => {
@@ -310,6 +370,16 @@ const Vista = (() => {
         g.append('rect').attr('x', -w / 2).attr('y', -16).attr('width', w).attr('height', 32).attr('rx', 5)
           .attr('fill', j % 2 ? C.morado : C.azul);
         g.append('text').attr('font-size', 19).text(nv.corto);
+      });
+
+      // Ramas que crecen hacia su perfil
+      geoR.cats.forEach(c => {
+        c.idx.forEach(i => {
+          const a = geoR.angRama(i), p1 = polar(a, geoR.rRotulo + 60), ctl = polar(a, c.r - 70);
+          const fin = polar(c.mid + (a - c.mid) * 0.25, c.r - R_PERFIL + 10);
+          capaRadial.append('path').attr('class', 'rama-a-perfil').attr('stroke', ramas[i].color)
+            .attr('d', `M${p1.x},${p1.y}Q${ctl.x},${ctl.y} ${fin.x},${fin.y}`);
+        });
       });
 
       // Rótulos de rama
@@ -333,6 +403,30 @@ const Vista = (() => {
           .text(`${cuantos} ${cuantos === 1 ? 'guía' : 'guías'}`);
       });
 
+      // Perfiles: la persona hacia la que crece cada categoría
+      geoR.cats.forEach(c => {
+        const pp = polar(c.mid, c.r);
+        const g = capaRadial.append('g').attr('class', 'perfil').attr('data-cat', c.cat.id)
+          .attr('transform', `translate(${pp.x},${pp.y})`)
+          .on('click', e => { e.stopPropagation(); eventos.onRama && eventos.onRama(`cat:${c.cat.id}`); });
+        g.append('circle').attr('class', 'avance-fondo').attr('r', R_PERFIL + 22);
+        g.append('path').attr('class', 'avance').attr('fill', c.cat.color);
+        g.append('circle').attr('class', 'disco').attr('r', R_PERFIL).attr('fill', c.cat.tinte || '#fff').attr('stroke', c.cat.color);
+        const t = 190;
+        g.append('use').attr('class', 'avatar').attr('href', `#perfil-${c.cat.icono || 'generico'}`)
+          .attr('x', -t / 2).attr('y', -t / 2).attr('width', t).attr('height', t).attr('stroke', c.cat.color).attr('color', c.cat.color);
+        const arriba = Math.sin(c.mid) < -0.45;
+        const lineas = envolver(c.cat.perfil || c.cat.nombre, 15);
+        const nGuias = m.nodos.filter(n => n._categoria === c.cat.id && n.tipo !== 'proyecto').length;
+        const base = arriba ? -R_PERFIL - 80 - (lineas.length - 1) * 50 : R_PERFIL + 70;
+        const tn = g.append('text').attr('class', 'nombre-perfil').attr('fill', c.cat.color).attr('y', base);
+        lineas.forEach((l, k) => tn.append('tspan').attr('x', 0).attr('dy', k ? 50 : 0).text(l));
+        g.append('text').attr('class', 'dato-perfil').attr('fill', C.texto)
+          .attr('y', base + (lineas.length - 1) * 50 + 38).text(`${nGuias} ${nGuias === 1 ? 'guía' : 'guías'} · ${c.idx.length} ramas`);
+        g.append('text').attr('class', 'etapa').attr('fill', c.cat.color)
+          .attr('y', arriba ? R_PERFIL + 70 : -R_PERFIL - 48);
+      });
+
       // Raíz
       const raiz = capaRadial.append('g').attr('class', 'raiz');
       raiz.append('circle').attr('class', 'raiz-aro').attr('r', R_RAIZ + 6);
@@ -345,17 +439,27 @@ const Vista = (() => {
     function dibujarFondoPoster() {
       capaPoster.selectAll('*').remove();
       const { niveles } = m.proyecto;
+      const COL_X0 = geoP.x0, dx = COL_X0 - COL_X0_BASE;
+      geoP.franjas.forEach(fr => {
+        const g = capaPoster.append('g').attr('class', 'franja-categoria');
+        g.append('rect').attr('x', 6).attr('y', fr.y + 4).attr('width', ANCHO_CAT - 14).attr('height', fr.alto - 8).attr('rx', 10)
+          .attr('fill', fr.cat.tinte || '#EEF2F8').attr('stroke', fr.cat.color).attr('stroke-width', 1.5);
+        const texto = fr.cat.nombre.length * 8.5 < fr.alto - 30 ? fr.cat.nombre : (fr.cat.perfil || fr.cat.nombre);
+        g.append('text').attr('fill', fr.cat.color)
+          .attr('transform', `translate(${6 + (ANCHO_CAT - 14) / 2 + 5},${fr.y + fr.alto / 2}) rotate(-90)`)
+          .text(recortar(texto, Math.max(6, Math.floor((fr.alto - 30) / 8.5))));
+      });
       geoP.filas.forEach(f => {
-        if (f.i % 2) capaPoster.append('rect').attr('class', 'banda-fila').attr('x', 0).attr('y', f.y).attr('width', geoP.ancho).attr('height', f.alto);
-        capaPoster.append('line').attr('class', 'divisor-fila').attr('x1', 20).attr('x2', COL_X0 - 30).attr('y1', f.y).attr('y2', f.y);
-        const g = capaPoster.append('g').attr('transform', `translate(58,${f.y + Math.min(f.alto / 2, 70)})`)
+        if (f.k % 2) capaPoster.append('rect').attr('class', 'banda-fila').attr('x', 0).attr('y', f.y).attr('width', geoP.ancho).attr('height', f.alto);
+        capaPoster.append('line').attr('class', 'divisor-fila').attr('x1', 20 + dx).attr('x2', COL_X0 - 30).attr('y1', f.y).attr('y2', f.y);
+        const g = capaPoster.append('g').attr('transform', `translate(${58 + dx},${f.y + Math.min(f.alto / 2, 70)})`)
           .style('cursor', 'pointer').on('click', e => { e.stopPropagation(); eventos.onRama && eventos.onRama(f.rama.id); });
         insignia(g, f.rama, 24);
         const lineas = envolver(f.rama.nombre, 20).slice(0, 4);
         const t = g.append('text').attr('class', 'rotulo-fila').attr('x', 38).attr('y', -(lineas.length - 1) * 9 + 5);
         lineas.forEach((l, k) => t.append('tspan').attr('x', 38).attr('dy', k ? 18 : 0).text(l));
       });
-      capaPoster.append('line').attr('class', 'divisor-fila').attr('x1', 20).attr('x2', COL_X0 - 30)
+      capaPoster.append('line').attr('class', 'divisor-fila').attr('x1', 20 + dx).attr('x2', COL_X0 - 30)
         .attr('y1', geoP.alto - 30).attr('y2', geoP.alto - 30);
       niveles.forEach((nv, j) => {
         const x = COL_X0 + j * COL_W, color = j % 2 ? C.morado : C.azul;
@@ -492,14 +596,14 @@ const Vista = (() => {
       if (vista === 'radial') {
         const r = Math.hypot(x, y), j = Math.round((r - R0) / DR);
         if (j < 0 || j >= niveles.length || Math.abs(r - geoR.radio(j)) > DR / 2) return null;
-        const ini = geoR.inicios[0];
+        const ini = geoR.inicioTotal;
         let ang = Math.atan2(y, x);
         while (ang < ini) ang += 2 * Math.PI;
         while (ang >= ini + 2 * Math.PI) ang -= 2 * Math.PI;
         const i = geoR.inicios.findIndex((a, k) => ang >= a && ang < a + geoR.anchos[k]);
         return i < 0 ? null : { nivel: niveles[j].id, rama: ramas[i].id };
       }
-      const j = Math.floor((x - COL_X0) / COL_W);
+      const j = Math.floor((x - geoP.x0) / COL_W);
       const f = geoP.filas.find(fl => y >= fl.y && y < fl.y + fl.alto);
       return j < 0 || j >= niveles.length || !f ? null : { nivel: niveles[j].id, rama: f.rama.id };
     }
@@ -596,14 +700,21 @@ const Vista = (() => {
       selNodos.classed('coincide', n => !!coincide && coincide.has(n.id));
     }
 
+    /** Enfoca una rama o, con «cat:ID», todas las ramas de una categoría. */
     function enfocarRama(ramaId) {
       svg.classed('hay-foco', !!ramaId);
-      const en = n => n.rama === ramaId || n.ramasSecundarias.includes(ramaId);
+      const idCat = ramaId && ramaId.startsWith('cat:') ? ramaId.slice(4) : null;
+      const ramas = idCat ? (m.ramasDeCategoria.get(idCat) || []) : [ramaId];
+      const en = n => ramas.includes(n.rama) || n.ramasSecundarias.some(r => ramas.includes(r));
       selNodos.classed('en-foco', n => !!ramaId && en(n));
       selAristas.classed('en-foco', a => !!ramaId && en(m.porId.get(a.origen)) && en(m.porId.get(a.destino)));
+      capaRadial.selectAll('.perfil').classed('en-foco', function () { return !!idCat && this.dataset.cat === idCat; });
       if (ramaId) {
         const ids = m.nodos.filter(en).map(n => n.id);
-        encuadrar(ids, 750, vista === 'radial' ? [{ x: 0, y: 0 }] : []);
+        const extra = vista === 'radial' ? [{ x: 0, y: 0 }] : [];
+        const c = idCat && geoR.cats.find(x => x.cat.id === idCat);
+        if (c && vista === 'radial') { const pp = polar(c.mid, c.r); extra.push({ x: pp.x - 200, y: pp.y + 330 }, { x: pp.x + 200, y: pp.y - 230 }); }
+        encuadrar(ids, 750, extra);
       }
     }
 
@@ -627,8 +738,17 @@ const Vista = (() => {
       capaRuta.append('path').attr('class', 'ruta-linea').attr('d', d);
     }
 
-    function aplicarEstudiante(activo, estados) {
+    function aplicarEstudiante(activo, estados, avances) {
       svg.classed('modo-estudiante', activo);
+      if (avances) {
+        capaRadial.selectAll('.perfil').each(function () {
+          const a = avances.get(this.dataset.cat);
+          if (!a) return;
+          const g = d3.select(this);
+          g.select('.avance').attr('d', d3.arc()({ innerRadius: R_PERFIL + 8, outerRadius: R_PERFIL + 22, startAngle: 0, endAngle: 2 * Math.PI * Math.max(a.fraccion, 0.0001) }));
+          g.select('.etapa').text(`${a.etapa} · ${a.hechos}/${a.total}`);
+        });
+      }
       selNodos.classed('estado-completado', n => activo && estados.get(n.id) === 'completado')
         .classed('estado-disponible', n => activo && estados.get(n.id) === 'disponible')
         .classed('estado-bloqueado', n => activo && estados.get(n.id) === 'bloqueado');
@@ -637,7 +757,12 @@ const Vista = (() => {
     // ── Cámara ───────────────────────────────────────────────────
     function limitesContenido() {
       if (vista === 'radial') {
-        const rx = geoR.rRotulo + 380, ry = geoR.rRotulo + 190;
+        let rx = geoR.rRotulo + 380, ry = geoR.rRotulo + 190;
+        geoR.cats.forEach(c => {
+          const pp = polar(c.mid, c.r);
+          rx = Math.max(rx, Math.abs(pp.x) + 300);
+          ry = Math.max(ry, Math.abs(pp.y) + R_PERFIL + 170);
+        });
         return [[-rx, -ry], [rx, ry]];
       }
       return [[0, 0], [geoP.ancho, geoP.alto]];
