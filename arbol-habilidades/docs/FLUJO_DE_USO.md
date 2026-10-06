@@ -1,4 +1,4 @@
-# 🌳 Árbol de Habilidades — Flujo de uso (propuesta v0.1)
+# 🌳 Árbol de Habilidades — Flujo de uso (v0.2)
 
 Herramienta para que **diseñadores, autores y equipos pedagógicos** conviertan una
 progresión de aprendizajes en un **árbol de habilidades** (*skill tree*) al estilo de
@@ -127,16 +127,25 @@ sensación "juego": nodos que brillan al desbloquearse, conexiones animadas y ra
 
 ---
 
-## 5. Propuesta técnica (para validar)
+## 5. Decisiones tomadas
+
+| Tema | Decisión |
+|---|---|
+| Forma del árbol | **Radial** por defecto (constelación estilo videojuego) + **vista póster** (cuadrícula BC) |
+| Carga de contenidos | **Hoja de cálculo + editor en pantalla** |
+| Guardado (v1) | **Navegador + archivo JSON** para compartir |
+| Primer caso | **Libro de Pensamiento Computacional** con los datos del póster BC |
+
+## 6. Propuesta técnica
 
 - **Aplicación web estática**, sin instalación, en la carpeta `arbol-habilidades/` (mismo estilo del repo: HTML + CSS + JS, sin *build*).
-- **D3.js** para el dibujo, el zoom y el paneo.
+- **D3.js** para el dibujo, el zoom y el paneo (incluido en `vendor/`, funciona sin conexión).
 - Guardado en el **navegador** + exportar/importar **JSON** (fase 1). Base de datos compartida (Supabase) como opción posterior.
 - Datos semilla: la progresión del póster BC transcrita a JSON.
 
-## 6. Fases de construcción
+## 7. Fases de construcción
 
-1. **Visor**: modelo de datos, datos del póster, árbol radial con zoom semántico, foco por rama, trayectorias.
+1. ✅ **Visor**: modelo de datos, datos del póster, árbol radial y vista póster con zoom semántico, foco por rama, trayectorias, modo estudiante, diagnóstico y exportación (adelantados de la fase 3).
 2. **Editor**: crear/editar ramas, niveles, nodos y prerrequisitos; importar hoja de cálculo.
 3. **Calidad y salida**: alertas de diseño, exportación a SVG/PNG/PDF, visor de solo lectura.
 4. **Curso de FP**: plantilla y vocabulario propios, prueba con un curso real.
