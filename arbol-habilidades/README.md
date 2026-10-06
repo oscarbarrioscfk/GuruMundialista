@@ -30,6 +30,7 @@ instalación ni conexión a internet. Se publica con GitHub Pages desde la rama 
 |---|---|
 | **Árbol radial** | Raíz al centro, una rama por eje, un anillo por grado. El ancho de cada rama se ajusta a su densidad. |
 | **Categorías y perfiles** | Las ramas se agrupan en categorías (*Conceptos y habilidades en computación*, *Prácticas de resolución de problemas usando la computación*, *Ciudadanía digital*) con su color y su arco. Cada categoría termina en un **perfil** (*Programador(a)*, *Innovador(a) con la tecnología*, *Ciudadano(a) digital*): el árbol crece desde la raíz hacia la persona. Clic en un perfil o en su grupo del panel enfoca toda la categoría. |
+| **Vista por niveles** | Sección *Vista* del panel: cuatro niveles de lo simple a lo complejo (**1** Ramas · **2** Conexiones · **3** Categorías · **4** Perfiles) y capas que se activan o desactivan una por una (conexiones, proyectos, ejes secundarios, categorías, perfiles). Aunque las conexiones estén apagadas, al hacer clic en una guía se ven sus requisitos. Cada proyecto recuerda su vista. |
 | **Vista póster** | La misma información en la cuadrícula ejes × grados del póster BC. El cambio entre vistas es animado. |
 | **Zoom semántico** | Lejos: ramas · Medio: guías · Cerca: habilidades con su rango (●○○ N0, ●●○ N1, ●●● N2). Las etiquetas aparecen solo donde caben. |
 | **Requisitos y desbloqueos** | Clic en una guía: en azul lo que requiere, en morado lo que desbloquea (fuerte lo directo, suave lo indirecto). Línea continua = indispensable, a trazos = deseable. |

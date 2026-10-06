@@ -115,6 +115,9 @@ const Vista = (() => {
     .modo-estudiante .perfil .etapa { display: inline; font-weight: 900; font-size: 28px; text-anchor: middle; }
     .hay-foco .perfil:not(.en-foco) { opacity: .25; }
     .franja-categoria text { font-weight: 900; font-size: 15px; text-anchor: middle; }
+    .sin-conexiones .arista:not(.atras):not(.adelante) { display: none; }
+    .sin-secundarias .marca-sec { display: none; }
+    .sin-proyectos .nodo.tipo-proyecto, .sin-proyectos .arista.a-proyecto { display: none !important; }
     .modo-edicion .nodo { cursor: crosshair; }
     .linea-conexion { fill: none; stroke: ${C.morado}; stroke-width: 2.5; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; pointer-events: none; }
     .nodo.destino-conexion .halo { stroke: ${C.azul}; opacity: .9; stroke-width: 7; }
@@ -140,7 +143,10 @@ const Vista = (() => {
   const puntosRango = r => (r === null || r === undefined ? '' : '●'.repeat(r + 1) + '○'.repeat(2 - r));
 
   // ── Disposiciones ───────────────────────────────────────────────
-  function disponerRadial(m) {
+  const CAPAS_COMPLETAS = { conexiones: true, secundarias: true, proyectos: true, categorias: true, perfiles: true };
+
+  function disponerRadial(m, capas = CAPAS_COMPLETAS) {
+    const usarCat = !!(capas.categorias && m.categorias?.length);
     const nN = m.proyecto.niveles.length;
     const celdas = d3.group(m.nodos, n => `${n._rama}|${n._nivel}`);
     // Cada rama recibe un ángulo proporcional a su densidad (con un mínimo),
@@ -152,14 +158,14 @@ const Vista = (() => {
     });
     const orden = m.ordenRamas || m.proyecto.ramas.map((_, i) => i);
     const catDe = i => m.proyecto.ramas[i].categoria && m.catIdx?.has(m.proyecto.ramas[i].categoria) ? m.proyecto.ramas[i].categoria : null;
-    const cortes = m.categorias?.length ? orden.filter((i, k) => k > 0 && catDe(i) !== catDe(orden[k - 1])).length : 0;
+    const cortes = usarCat ? orden.filter((i, k) => k > 0 && catDe(i) !== catDe(orden[k - 1])).length : 0;
     const total = d3.sum(pesos), util = 2 * Math.PI - HUECO - cortes * HUECO_CAT;
     const anchos = pesos.map(p => util * p / total);
     const inicioTotal = -Math.PI / 2 + HUECO / 2;
     const inicios = [];
     let acum = inicioTotal;
     orden.forEach((i, k) => {
-      if (k > 0 && m.categorias?.length && catDe(i) !== catDe(orden[k - 1])) acum += HUECO_CAT;
+      if (k > 0 && usarCat && catDe(i) !== catDe(orden[k - 1])) acum += HUECO_CAT;
       inicios[i] = acum;
       acum += anchos[i];
     });
@@ -182,7 +188,7 @@ const Vista = (() => {
     });
     const rMax = radio(nN - 1);
     const rRotulo = rMax + DR * 0.5 + 120;
-    const cats = (m.categorias || []).map(c => {
+    const cats = (usarCat ? m.categorias : []).map(c => {
       const idx = m.proyecto.ramas.map((r, i) => (r.categoria === c.id ? i : -1)).filter(i => i >= 0);
       if (!idx.length) return null;
       const a0 = Math.min(...idx.map(i => inicios[i])), a1 = Math.max(...idx.map(i => inicios[i] + anchos[i]));
@@ -202,9 +208,10 @@ const Vista = (() => {
     return 18 + (k ? inicioHabilidades(n) + 13 * (k - 1) + 9 : Math.max(18, 14 * lineasPoster(n).length + 8));
   }
 
-  function disponerPoster(m) {
+  function disponerPoster(m, capas = CAPAS_COMPLETAS) {
     const { ramas, niveles } = m.proyecto;
-    const COL_X0 = COL_X0_BASE + (m.categorias?.length ? ANCHO_CAT : 0);
+    const usarCat = !!(capas.categorias && m.categorias?.length);
+    const COL_X0 = COL_X0_BASE + (usarCat ? ANCHO_CAT : 0);
     const filas = [];
     let y = FILA_Y0;
     (m.ordenRamas || ramas.map((_, i) => i)).forEach(i => {
@@ -228,7 +235,7 @@ const Vista = (() => {
       filas.push({ rama: r, i, k: filas.length, y, alto });
       y += alto;
     });
-    const franjas = (m.categorias || []).map(c => {
+    const franjas = (usarCat ? m.categorias : []).map(c => {
       const fs = filas.filter(f => f.rama.categoria === c.id);
       return fs.length ? { cat: c, y: fs[0].y, alto: d3.sum(fs, f => f.alto) } : null;
     }).filter(Boolean);
@@ -278,6 +285,15 @@ const Vista = (() => {
     const capaNodos = mundo.append('g').attr('class', 'nodos');
 
     let m = null, vista = 'radial', geoR = null, geoP = null, nivelZoom = null;
+    let capas = { ...CAPAS_COMPLETAS };
+    const perfilesVisibles = () => (capas.perfiles ? geoR.cats : []);
+    /** Capas visibles. Las que cambian la geometría (categorías, perfiles) requieren volver a dibujar. */
+    function establecerCapas(nuevas) {
+      capas = { ...CAPAS_COMPLETAS, ...nuevas };
+      if (!capas.categorias) capas.perfiles = false;
+      svg.classed('sin-conexiones', !capas.conexiones).classed('sin-secundarias', !capas.secundarias).classed('sin-proyectos', !capas.proyectos);
+      etiquetar();
+    }
     let selNodos = null, selAristas = null;
 
     const zoom = d3.zoom().scaleExtent([0.1, 5])
@@ -306,8 +322,8 @@ const Vista = (() => {
     function dibujar(modelo) {
       m = modelo;
       svg.classed('fuente-equipo fuente-habilidades fuente-ambas', false).classed(`fuente-${m.fuente}`, true);
-      geoR = disponerRadial(m);
-      geoP = disponerPoster(m);
+      geoR = disponerRadial(m, capas);
+      geoP = disponerPoster(m, capas);
       dibujarFondoRadial();
       dibujarFondoPoster();
       dibujarAristas();
@@ -373,7 +389,7 @@ const Vista = (() => {
       });
 
       // Ramas que crecen hacia su perfil
-      geoR.cats.forEach(c => {
+      perfilesVisibles().forEach(c => {
         c.idx.forEach(i => {
           const a = geoR.angRama(i), p1 = polar(a, geoR.rRotulo + 60), ctl = polar(a, c.r - 70);
           const fin = polar(c.mid + (a - c.mid) * 0.25, c.r - R_PERFIL + 10);
@@ -404,7 +420,7 @@ const Vista = (() => {
       });
 
       // Perfiles: la persona hacia la que crece cada categoría
-      geoR.cats.forEach(c => {
+      perfilesVisibles().forEach(c => {
         const pp = polar(c.mid, c.r);
         const g = capaRadial.append('g').attr('class', 'perfil').attr('data-cat', c.cat.id)
           .attr('transform', `translate(${pp.x},${pp.y})`)
@@ -614,12 +630,13 @@ const Vista = (() => {
       if (!selNodos) return;
       const nivel = k < UMBRAL_MEDIO ? 'lejos' : k < UMBRAL_CERCA ? 'medio' : 'cerca';
       if (vista !== 'radial') { selNodos.select('.etiqueta').attr('display', 'none'); return; }
-      const ocupado = m.nodos.map(n => {
+      const visibles = m.nodos.filter(n => capas.proyectos || n.tipo !== 'proyecto');
+      const ocupado = visibles.map(n => {
         const p = n._pos.radial, r = 17 * k;
         return { x: p.x * k - r, y: p.y * k - r, w: 2 * r, h: 2 * r, id: n.id };
       });
       const choca = c => ocupado.some(o => o.id !== c.id && c.x < o.x + o.w && c.x + c.w > o.x && c.y < o.y + o.h && c.y + c.h > o.y);
-      const orden = [...m.nodos].sort((a, b) => (prioridad.has(b.id) - prioridad.has(a.id))
+      const orden = [...visibles].sort((a, b) => (prioridad.has(b.id) - prioridad.has(a.id))
         || (a.tipo === 'proyecto') - (b.tipo === 'proyecto') || b.habilidades.length - a.habilidades.length);
       const eleccion = new Map();
       orden.forEach(n => {
@@ -712,7 +729,7 @@ const Vista = (() => {
       if (ramaId) {
         const ids = m.nodos.filter(en).map(n => n.id);
         const extra = vista === 'radial' ? [{ x: 0, y: 0 }] : [];
-        const c = idCat && geoR.cats.find(x => x.cat.id === idCat);
+        const c = idCat && perfilesVisibles().find(x => x.cat.id === idCat);
         if (c && vista === 'radial') { const pp = polar(c.mid, c.r); extra.push({ x: pp.x - 200, y: pp.y + 330 }, { x: pp.x + 200, y: pp.y - 230 }); }
         encuadrar(ids, 750, extra);
       }
@@ -758,7 +775,7 @@ const Vista = (() => {
     function limitesContenido() {
       if (vista === 'radial') {
         let rx = geoR.rRotulo + 380, ry = geoR.rRotulo + 190;
-        geoR.cats.forEach(c => {
+        perfilesVisibles().forEach(c => {
           const pp = polar(c.mid, c.r);
           rx = Math.max(rx, Math.abs(pp.x) + 300);
           ry = Math.max(ry, Math.abs(pp.y) + R_PERFIL + 170);
@@ -819,7 +836,7 @@ const Vista = (() => {
 
     return {
       dibujar, cambiarVista, seleccionar, filtrar, enfocarRama, mostrarRuta, aplicarEstudiante,
-      encuadrar, centrarEn, acercar, exportarSVG, modoEdicion, celdaEn,
+      encuadrar, centrarEn, acercar, exportarSVG, modoEdicion, celdaEn, establecerCapas,
       get vista() { return vista; }
     };
   }
