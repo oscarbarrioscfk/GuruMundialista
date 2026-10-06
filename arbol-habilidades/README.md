@@ -164,7 +164,7 @@ En esa vista, cada *Evaluación y proyectos* recibe todas las guías de su grado
 - Las **claves** que agrupan habilidades parecidas (p. ej. *Seguir instrucciones* y *Seguir
   instrucciones en tarjetas*) son una propuesta y definen las conexiones.
 - La tipografía del póster es *Basic Sans*; en la web se usa **Nunito Sans** como equivalente libre.
-- Los colores de cada rama siguen la familia de su categoría (azules y morados, verdes, cálidos), tomada de la tabla de categorías del equipo.
+- Los íconos de las ramas son los vectores originales del póster. Los colores de cada categoría usan familias de la paleta de las guías: azul periwinkle (*Conceptos*), lavanda (*Prácticas*) y rosa (*Ciudadanía digital*), en tonos sobrios; cada rama es un tono de la familia de su categoría.
 - Los nombres de los perfiles son una propuesta para conversar con el equipo.
 
 ## 🛣️ Fases

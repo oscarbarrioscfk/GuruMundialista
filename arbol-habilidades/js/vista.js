@@ -263,7 +263,7 @@ const Vista = (() => {
     const t = radio * 1.05;
     g.append('use').attr('href', `#ico-${rama.icono || 'generico'}`)
       .attr('class', 'insignia-icono').attr('x', -t / 2).attr('y', -t / 2).attr('width', t).attr('height', t)
-      .attr('stroke', C.morado).attr('fill', C.morado);
+      .attr('stroke', C.morado).attr('fill', C.morado).attr('color', C.morado);
   }
 
   // ── Fábrica ─────────────────────────────────────────────────────

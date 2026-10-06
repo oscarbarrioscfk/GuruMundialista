@@ -36,10 +36,17 @@
     if (!almacen.proyectos[ID_EJEMPLO]) almacen.proyectos[ID_EJEMPLO] = entradaEjemplo();
     actualizarEjemplo(almacen.proyectos[ID_EJEMPLO].proyecto);
   }
-  // El ejemplo guardado antes de existir las categorías las recibe sin perder cambios.
+  // El ejemplo guardado antes de existir las categorías las recibe sin perder cambios,
+  // y toma los colores de la paleta vigente.
   function actualizarEjemplo(p) {
     const semilla = window.PROYECTO_PC;
+    if (p.categorias && p.paleta !== semilla.paleta) {
+      p.categorias.forEach(c => { const s = semilla.categorias.find(x => x.id === c.id); if (s) { c.color = s.color; c.tinte = s.tinte; } });
+      p.ramas.forEach(r => { const s = semilla.ramas.find(x => x.id === r.id); if (s) r.color = s.color; });
+      p.paleta = semilla.paleta;
+    }
     if (p.categorias || !semilla.categorias) return;
+    p.paleta = semilla.paleta;
     p.categorias = copia(semilla.categorias);
     const orden = semilla.ramas.map(r => r.id);
     p.ramas.forEach(r => {
@@ -304,7 +311,7 @@
     return `<span class="insignia-rama"><svg viewBox="-20 -20 40 40" aria-hidden="true">
       <circle r="15" fill="#fff" stroke="#6898D0" stroke-width="1.2"/>
       <path d="M-14.6 4.3A15 15 0 0 0 -4.6 14.3" fill="none" stroke="#6898D0" stroke-width="3" stroke-linecap="round" transform="translate(-1.5,1)"/>
-      <use href="#ico-${esc(rama.icono || 'generico')}" x="-8.5" y="-8.5" width="17" height="17" stroke="${rama.color}" fill="${rama.color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="fill:none"/>
+      <use href="#ico-${esc(rama.icono || 'generico')}" x="-10" y="-10" width="20" height="20" color="${rama.color}" stroke="${rama.color}" fill="${rama.color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="fill:none"/>
     </svg></span>`;
   }
   function renderRamas() {

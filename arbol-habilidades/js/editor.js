@@ -4,9 +4,10 @@
  * de error (texto) cuando la operación no es válida.
  */
 const Editor = (() => {
-  const PALETA = ['#662B80', '#4A78C2', '#1F8A8A', '#D9692B', '#8E5CC2', '#C2417A', '#4F2B63', '#C98A12', '#3C8D5A', '#2E7D9A', '#A0522D', '#5B6ABF'];
+  const PALETA = ['#662B80', '#4F79B8', '#7A4A9E', '#C2506F', '#2F5B94', '#8E5FB5', '#B8456A', '#4D8BBF', '#5C3B7E', '#9C3D5E', '#3E8C8E', '#4F2B63'];
   const PERFILES = ['programador', 'innovador', 'ciudadano', 'generico'];
-  const COLORES_CATEGORIA = [['#3F6FAE', '#DCE5F4'], ['#3C8D5A', '#DCEEDB'], ['#C8553D', '#FBE3DA'], ['#662B80', '#ECE2F2'], ['#C98A12', '#F8ECD2']];
+  // Familias de la paleta de las guías: azul periwinkle, lavanda, rosa, ciruela y turquesa suave.
+  const COLORES_CATEGORIA = [['#4F79B8', '#E4ECF7'], ['#7A4A9E', '#EFE7F5'], ['#C2506F', '#FBE8ED'], ['#4F2B63', '#ECE6F0'], ['#3E8C8E', '#E2F1F1']];
   const ICONOS = ['algoritmos', 'programacion', 'datos', 'fisica', 'modelacion', 'ia', 'seguridad', 'equidad', 'etica', 'generico'];
 
   const PLANTILLAS = {

@@ -39,7 +39,7 @@ const Grafo = (() => {
     clave: ['clave', 'claveopcional', 'identificador'],
     sub1: ALIAS_GRAFO.sub1
   };
-  const COLORES_NUEVOS = ['#2E7D9A', '#A0522D', '#5B6ABF', '#8A6D1F', '#B0476B', '#3D7F6E', '#7A4FA0'];
+  const COLORES_NUEVOS = ['#4F79B8', '#7A4A9E', '#C2506F', '#3E8C8E', '#5C3B7E', '#9C3D5E', '#2F5B94'];
 
   const clave = s => Modelo.normalizar(s).replace(/-/g, '');
   const codigo = c => String(c ?? '').trim().replace(/^T\.?(\d+)$/i, 'T.$1');
