@@ -285,6 +285,22 @@ button { cursor: pointer; }
 }
 
 
+/* ── Solo lectura ──────────────────────────────────────────────── */
+[data-solo-lectura] { display: none !important; }
+.modo-lectura [data-solo-lectura] { display: block !important; }
+.modo-lectura hr[data-solo-lectura] { display: block !important; }
+.modo-lectura [data-solo-edicion], .modo-lectura #btn-editar { display: none !important; }
+.titulos { position: relative; }
+.insignia-lectura {
+  margin-top: 6px; background: var(--blanco); color: var(--ciruela); border: 1.5px solid var(--ciruela);
+  border-radius: 999px; padding: 2px 10px; font-size: .74rem; font-weight: 900;
+}
+.enlace-compartir {
+  width: 100%; font: 600 .76rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--texto-fuerte);
+  border: 1.5px solid var(--linea); border-radius: 8px; padding: 8px; resize: vertical; word-break: break-all; background: var(--banda);
+}
+.dialogo a.boton { text-decoration: none; }
+
 /* ── Modo diseño ───────────────────────────────────────────────── */
 .boton:disabled { opacity: .45; cursor: not-allowed; }
 .boton-peligro { background: var(--blanco); border-color: var(--alerta); color: var(--alerta); }

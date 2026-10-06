@@ -39,6 +39,7 @@
     <div class="titulos">
       <h1 class="banda banda-ciruela">Árbol de habilidades</h1>
       <p class="banda banda-azul" id="titulo-proyecto">Pensamiento Computacional</p>
+      <span class="insignia-lectura" id="insignia-lectura" hidden>👁 Solo lectura</span>
     </div>
     <div class="acciones">
       <div class="segmentado" role="group" aria-label="Vista">
@@ -56,21 +57,24 @@
       <div class="menu">
         <button type="button" class="boton boton-secundario" id="btn-archivo" aria-haspopup="true" aria-expanded="false">Archivo ▾</button>
         <div class="menu-lista" id="menu-archivo" hidden>
-          <button type="button" data-accion="proyectos">Mis proyectos…</button>
-          <button type="button" data-accion="nuevo">Nuevo proyecto…</button>
-          <button type="button" data-accion="duplicar">Guardar una copia de este proyecto</button>
-          <hr>
-          <button type="button" data-accion="importar-hoja">Importar hoja de cálculo (.xlsx, .csv)…</button>
+          <button type="button" data-accion="copia-editable" data-solo-lectura>✎ Abrir una copia editable</button>
+          <hr data-solo-lectura>
+          <button type="button" data-accion="proyectos" data-solo-edicion>Mis proyectos…</button>
+          <button type="button" data-accion="nuevo" data-solo-edicion>Nuevo proyecto…</button>
+          <button type="button" data-accion="duplicar" data-solo-edicion>Guardar una copia de este proyecto</button>
+          <button type="button" data-accion="compartir" data-solo-edicion>🔗 Compartir enlace de solo lectura…</button>
+          <hr data-solo-edicion>
+          <button type="button" data-accion="importar-hoja" data-solo-edicion>Importar hoja de cálculo (.xlsx, .csv)…</button>
           <button type="button" data-accion="exportar-hoja">Exportar a hoja de cálculo (.xlsx)</button>
-          <button type="button" data-accion="plantilla">Descargar plantilla vacía (.xlsx)</button>
+          <button type="button" data-accion="plantilla" data-solo-edicion>Descargar plantilla vacía (.xlsx)</button>
           <hr>
           <button type="button" data-accion="exportar-json">Guardar proyecto (.json)</button>
-          <button type="button" data-accion="importar-json">Abrir proyecto (.json)…</button>
+          <button type="button" data-accion="importar-json" data-solo-edicion>Abrir proyecto (.json)…</button>
           <hr>
           <button type="button" data-accion="exportar-svg">Descargar imagen (.svg)</button>
           <button type="button" data-accion="exportar-png">Descargar imagen (.png)</button>
           <hr>
-          <button type="button" data-accion="restablecer">Restablecer el proyecto de ejemplo</button>
+          <button type="button" data-accion="restablecer" data-solo-edicion>Restablecer el proyecto de ejemplo</button>
         </div>
         <input type="file" id="archivo-json" accept=".json,application/json" hidden>
         <input type="file" id="archivo-hoja" accept=".xlsx,.xltx,.xlsm,.csv,.tsv" hidden>
@@ -201,7 +205,7 @@
 
   <footer class="pie">
     <span id="autoria"></span>
-    <span>Datos guardados solo en este navegador · exporta el proyecto para compartirlo</span>
+    <span id="pie-guardado">Datos guardados solo en este navegador · exporta el proyecto para compartirlo</span>
   </footer>
 
   <script src="js/datos-pc.js"></script>
@@ -210,6 +214,7 @@
   <script src="js/grafo.js"></script>
   <script src="js/editor.js"></script>
   <script src="js/disenio.js"></script>
+  <script src="js/compartir.js"></script>
   <script src="js/vista.js"></script>
   <script src="js/app.js"></script>
 </body>

@@ -5,6 +5,11 @@
   const CLAVE = 'arbolHabilidades.v3';
   const CLAVE_V2 = 'arbolHabilidades.v2';
   const ID_EJEMPLO = 'ejemplo-pc';
+  // Solo lectura: «?lectura» o un enlace compartido «#ver=…». Nunca escribe en los proyectos guardados.
+  const PARAMS = new URLSearchParams(location.search);
+  const HASH = new URLSearchParams(location.hash.slice(1));
+  const LECTURA = PARAMS.has('lectura') || HASH.has('ver');
+  const CLAVE_LECTURA = 'arbolHabilidades.lectura';
   const $ = sel => document.querySelector(sel);
   const $$ = sel => [...document.querySelectorAll(sel)];
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -56,6 +61,15 @@
     p.ramas.sort((a, b) => (orden.indexOf(a.id) + 1 || 99) - (orden.indexOf(b.id) + 1 || 99));
   }
   function guardar() {
+    if (LECTURA) {
+      // En lectura solo se recuerdan la vista y el progreso del modo estudiante.
+      try {
+        const prefs = JSON.parse(localStorage.getItem(CLAVE_LECTURA) || '{}');
+        prefs[estado.idProyecto] = { capas: estado.capas, completados: [...estado.completados] };
+        localStorage.setItem(CLAVE_LECTURA, JSON.stringify(prefs));
+      } catch (e) { /* sin almacenamiento */ }
+      return;
+    }
     almacen.actual = estado.idProyecto;
     almacen.proyectos[estado.idProyecto] = {
       proyecto: estado.proyecto, completados: [...estado.completados], rutasUsuario: estado.rutasUsuario,
@@ -79,6 +93,65 @@
     guardar();
     reconstruir({ encuadrar });
   }
+  // ── Solo lectura ────────────────────────────────────────────────
+  async function iniciarLectura() {
+    document.body.classList.add('modo-lectura');
+    $('#insignia-lectura').hidden = false;
+    $('#pie-guardado').textContent = 'Vista de solo lectura · tus cambios de vista y tu progreso quedan solo en este navegador';
+    let datos = null, error = null;
+    try {
+      if (HASH.get('ver')) datos = await Compartir.decodificar(HASH.get('ver'));
+      else if (PARAMS.get('url')) {
+        const r = await fetch(PARAMS.get('url'));
+        if (!r.ok) throw new Error(`No se pudo descargar el proyecto (${r.status}).`);
+        const j = await r.json();
+        datos = j.proyecto ? j : { proyecto: j };
+        const errores = Modelo.validar(datos.proyecto);
+        if (errores.length) throw new Error('El archivo no contiene un proyecto válido: ' + errores.join(' '));
+      }
+    } catch (e) { error = e.message || String(e); }
+    if (!datos) datos = { proyecto: copia(window.PROYECTO_PC) };
+    if (!datos.proyecto.categorias && datos.proyecto.titulo === window.PROYECTO_PC.titulo) actualizarEjemplo(datos.proyecto);
+    const id = `lectura:${Modelo.normalizar(datos.proyecto.titulo || 'proyecto')}`;
+    let prefs = {};
+    try { prefs = JSON.parse(localStorage.getItem(CLAVE_LECTURA) || '{}')[id] || {}; } catch (e) { /* sin almacenamiento */ }
+    almacen.proyectos[id] = {
+      proyecto: datos.proyecto, rutasUsuario: datos.rutas || [], fuente: datos.fuente,
+      capas: prefs.capas || datos.capas, completados: prefs.completados || []
+    };
+    abrirProyecto(id);
+    if (datos.vista === 'poster') $('[data-vista="poster"]').click();
+    if (error) mostrarDialogo('No se pudo abrir el enlace', `<p>${esc(error)}</p><p>Se muestra el proyecto de ejemplo.</p>`);
+  }
+
+  /** Copia el proyecto que se está viendo a «Mis proyectos» y abre el editor. */
+  function copiaEditable() {
+    const e = almacen.proyectos[estado.idProyecto];
+    let guardado = { actual: ID_EJEMPLO, proyectos: {} };
+    try { guardado = JSON.parse(localStorage.getItem(CLAVE) || 'null') || guardado; } catch (err) { /* vacío */ }
+    const id = `p-${Date.now().toString(36)}`;
+    guardado.proyectos[id] = { proyecto: copia(e.proyecto), completados: [], rutasUsuario: copia(e.rutasUsuario || []), fuente: estado.fuente, capas: estado.capas, actualizado: Date.now() };
+    guardado.actual = id;
+    try { localStorage.setItem(CLAVE, JSON.stringify(guardado)); } catch (err) { aviso('Este navegador no permite guardar proyectos.', 'error'); return; }
+    location.href = location.href.split(/[?#]/)[0];
+  }
+
+  async function dialogoCompartir() {
+    const codigo = await Compartir.codificar({
+      proyecto: estado.proyecto, rutas: estado.rutasUsuario, capas: estado.capas, fuente: estado.fuente, vista: vista.vista
+    });
+    const url = Compartir.enlace(codigo);
+    const local = location.protocol === 'file:';
+    mostrarDialogo('Compartir en solo lectura', `
+      <p>Quien abra este enlace verá <b>«${esc(estado.proyecto.titulo)}»</b> tal como está ahora, con la vista actual (nivel, capas y ${vista.vista === 'poster' ? 'vista póster' : 'árbol radial'}). Podrá explorarlo, usar el modo estudiante y descargar imágenes, pero no editarlo.</p>
+      <textarea class="enlace-compartir" id="enlace-compartir" readonly rows="4">${esc(url)}</textarea>
+      <div class="botonera" style="justify-content:flex-start;gap:8px;margin-top:8px">
+        <button type="button" class="boton" data-copiar-enlace>Copiar enlace</button>
+        <a class="boton boton-secundario" href="${esc(url)}" target="_blank" rel="noopener">Abrir vista previa</a>
+      </div>
+      <p class="nota">El proyecto viaja dentro del enlace (${(url.length / 1000).toFixed(1)} mil caracteres), sin servidor ni cuentas. Si cambias el diseño, comparte un enlace nuevo.${url.length > 30000 ? ' <b>Es un enlace largo:</b> algunos servicios de mensajería podrían cortarlo; en ese caso, publica el .json y usa «?lectura&amp;url=».' : ''}${local ? ' <b>Ojo:</b> estás usando la herramienta desde un archivo local; para que otros abran el enlace, compártelo desde la versión publicada en línea.' : ''}</p>`);
+  }
+
   function crearProyecto(proyecto, extra = {}) {
     const id = `p-${Date.now().toString(36)}`;
     almacen.proyectos[id] = { proyecto, completados: [], rutasUsuario: [], fuente: 'equipo', ...extra, actualizado: Date.now() };
@@ -432,10 +505,10 @@
             <button type="button" class="boton boton-secundario" data-accion-ruta="cancelar">Cancelar</button>
           </div>
         </div>`
-        : `<button type="button" class="boton" data-accion-ruta="nueva" style="margin-bottom:12px">+ Nueva trayectoria</button>`}
+        : LECTURA ? '' : `<button type="button" class="boton" data-accion-ruta="nueva" style="margin-bottom:12px">+ Nueva trayectoria</button>`}
       ${todasLasRutas().map(r => `
         <div class="ruta ${estado.rutaActiva === r.id ? 'activo' : ''}" data-ruta="${esc(r.id)}" role="button" tabindex="0">
-          <h5><span>${esc(r.nombre)}</span>${r.propia ? `<button type="button" class="enlace borrar" data-borrar-ruta="${esc(r.id)}">Borrar</button>` : ''}</h5>
+          <h5><span>${esc(r.nombre)}</span>${r.propia && !LECTURA ? `<button type="button" class="enlace borrar" data-borrar-ruta="${esc(r.id)}">Borrar</button>` : ''}</h5>
           ${r.descripcion ? `<p>${esc(r.descripcion)}</p>` : ''}
           <div class="pasos">${pasos(r.nodos)}</div>
         </div>`).join('')}
@@ -658,6 +731,8 @@
     else if (accion === 'exportar-hoja') descargar(`${nombreBase()}.xlsx`, Hoja.xlsx(Grafo.libro(estado.proyecto)));
     else if (accion === 'plantilla') descargar('plantilla-arbol-de-habilidades.xlsx', Hoja.xlsx(Grafo.plantilla()));
     else if (accion === 'proyectos') dialogoProyectos();
+    else if (accion === 'compartir') dialogoCompartir();
+    else if (accion === 'copia-editable') copiaEditable();
     else if (accion === 'nuevo') { cerrarDialogo(); dialogoNuevo(); }
     else if (accion === 'duplicar') {
       const p = copia(estado.proyecto);
@@ -767,6 +842,13 @@
     $('#archivo-hoja').addEventListener('change', e => { if (e.target.files[0]) importarHoja(e.target.files[0]); e.target.value = ''; });
     $('#dialogo-cerrar').addEventListener('click', cerrarDialogo);
     $('#dialogo-cuerpo').addEventListener('click', e => {
+      if (e.target.closest('[data-copiar-enlace]')) {
+        const t = $('#enlace-compartir');
+        t.select();
+        (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).then(
+          () => aviso('Enlace copiado.'), () => { document.execCommand && document.execCommand('copy'); aviso('Enlace seleccionado: cópialo con Ctrl+C.'); });
+        return;
+      }
       const abrir = e.target.closest('[data-abrir-proyecto]'), borrar = e.target.closest('[data-borrar-proyecto]'), acc = e.target.closest('[data-accion]');
       if (abrir) { cerrarDialogo(); abrirProyecto(abrir.dataset.abrirProyecto); aviso(`Proyecto «${estado.proyecto.titulo}» abierto.`); }
       else if (borrar) {
@@ -882,5 +964,5 @@
     get proyecto() { return estado.proyecto; },
     verFicha: () => { estado.fichaLectura = true; renderDetalle(); }
   });
-  abrirProyecto(almacen.actual);
+  if (LECTURA) iniciarLectura(); else abrirProyecto(almacen.actual);
 })();

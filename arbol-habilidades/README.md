@@ -58,6 +58,23 @@ instalación ni conexión a internet. Se publica con GitHub Pages desde la rama 
 Todo se guarda **solo en el navegador** de quien lo usa. Para compartir un diseño, expórtalo
 en `.json` o en hoja de cálculo.
 
+## 👁 Compartir en solo lectura (para docentes)
+
+- **Archivo → 🔗 Compartir enlace de solo lectura** genera un enlace con el proyecto **dentro del propio
+  enlace** (comprimido, unos 7 mil caracteres para el ejemplo completo) y con la vista elegida:
+  nivel, capas y árbol radial o póster. No necesita servidor ni cuentas.
+- Quien lo abre ve el árbol sin herramientas de edición. Puede explorar (zoom, niveles, filtros,
+  rutas, detalle), usar el **modo estudiante** y descargar imágenes. Su progreso queda en su navegador
+  y nunca toca los proyectos de quien diseñó.
+- **✎ Abrir una copia editable** guarda una copia en *Mis proyectos* para modificarla.
+- El ejemplo de Pensamiento Computacional en solo lectura:
+  <https://oscarbarrioscfk.github.io/GuruMundialista/arbol-habilidades/?lectura>
+- Para proyectos muy grandes, publica el `.json` (por ejemplo en este repositorio) y comparte
+  `…/arbol-habilidades/?lectura&url=<dirección del .json>`.
+
+Si se cambia el diseño, hay que compartir un enlace nuevo: el enlace guarda el proyecto tal como estaba
+al generarlo.
+
 ## 🧭 Crear un diseño propio en 5 pasos
 
 1. *Archivo → Nuevo proyecto*: elige libro o curso de FP y escribe niveles y ramas (uno por línea).
@@ -156,6 +173,7 @@ En esa vista, cada *Evaluación y proyectos* recibe todas las guías de su grado
 | `js/grafo.js` | Traducción entre las hojas (grafo y habilidades) y el proyecto |
 | `js/editor.js` | Operaciones de edición: crear, conectar, renombrar y eliminar (sin DOM) |
 | `js/disenio.js` | Interfaz del modo diseño: ficha editable y pestaña Estructura |
+| `js/compartir.js` | Enlaces de solo lectura: comprime el proyecto dentro del enlace |
 | `js/vista.js` | Dibujo con D3: disposiciones radial y póster, zoom, resaltados, exportación |
 | `js/app.js` | Paneles, filtros, trayectorias, archivos, proyectos, historial y guardado local |
 | `lib/d3.min.js` | D3 v7.9.0 incluido para funcionar sin conexión (licencia ISC en `lib/D3-LICENSE.txt`) |
@@ -172,6 +190,6 @@ En esa vista, cada *Evaluación y proyectos* recibe todas las guías de su grado
 
 1. ✅ **Visor**: árbol radial y póster, zoom semántico, trayectorias, modo estudiante, diagnóstico.
 2. ✅ **Editor**: proyectos propios, modo diseño, hojas de grafo y habilidades, deshacer.
-3. **Salida**: póster PDF para el libro y visor de solo lectura para compartir con docentes.
+3. **Salida**: ✅ visor de solo lectura para docentes · póster PDF para el libro.
 4. **Colaboración**: proyectos compartidos entre varios autores (p. ej. con Supabase).
 5. **Curso de FP real**: probar el flujo con un programa de formación profesional.
