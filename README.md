@@ -139,6 +139,14 @@ La fase de eliminación respeta la estructura oficial de la Ronda de 32 del Mund
 
 ---
 
+## 🌳 También en este repositorio: Árbol de habilidades
+
+En la carpeta [`arbol-habilidades/`](arbol-habilidades/) está la herramienta para visualizar y diseñar
+progresiones de aprendizaje como un *skill tree*, con los datos de las Guías de Pensamiento
+Computacional. En línea: <https://oscarbarrioscfk.github.io/GuruMundialista/arbol-habilidades/>
+
+---
+
 ## 🙌 Créditos
 
 Proyecto desarrollado para **Colombia Programa**.
