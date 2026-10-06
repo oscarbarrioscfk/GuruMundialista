@@ -2,7 +2,7 @@
  * App: estado, paneles y conexión entre el modelo y la vista.
  */
 (() => {
-  const CLAVE = 'arbolHabilidades.v1';
+  const CLAVE = 'arbolHabilidades.v2';
   const $ = sel => document.querySelector(sel);
   const $$ = sel => [...document.querySelectorAll(sel)];
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -11,6 +11,7 @@
   const estado = {
     proyecto: null, completados: new Set(), rutasUsuario: [],
     seleccion: null, rutaActiva: null, foco: null, busqueda: '', estudiante: false, editandoRuta: null,
+    fuente: 'equipo', matriz: 'todas',
     filtros: { herramientas: new Set(), rangos: new Set(), desde: 0, hasta: Infinity }
   };
   let m = null;
@@ -26,7 +27,8 @@
   function guardar() {
     try {
       localStorage.setItem(CLAVE, JSON.stringify({
-        proyecto: estado.proyecto, completados: [...estado.completados], rutasUsuario: estado.rutasUsuario
+        proyecto: estado.proyecto, completados: [...estado.completados], rutasUsuario: estado.rutasUsuario,
+        fuente: estado.fuente
       }));
     } catch (e) { /* sin almacenamiento: la sesión sigue funcionando */ }
   }
@@ -42,7 +44,8 @@
   });
 
   function reconstruir({ encuadrar = true } = {}) {
-    m = Modelo.preparar(estado.proyecto);
+    m = Modelo.preparar(estado.proyecto, { fuente: estado.fuente });
+    $$('#filtro-fuente [data-fuente]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.fuente === estado.fuente)));
     estado.filtros.hasta = Math.min(estado.filtros.hasta, m.proyecto.niveles.length - 1);
     if (!Number.isFinite(estado.filtros.hasta)) estado.filtros.hasta = m.proyecto.niveles.length - 1;
     vista.dibujar(m);
@@ -122,11 +125,19 @@
     const requiere = m.entrantes.get(id), desbloquea = m.salientes.get(id);
     const vinculo = (a, lado) => {
       const otro = m.porId.get(a[lado]);
-      const motivo = a.tipo === 'proyecto' ? 'proyecto integrador' : a.tipo === 'manual' ? 'definido a mano' : a.etiquetas.join(', ');
-      return `<button type="button" class="vinculo" data-ir="${esc(otro.id)}" title="${esc(motivo)}"><b>${esc(otro.codigo)}</b> ${esc(otro.titulo)}</button>`;
+      const comparten = a.etiquetas.length ? `<small>${esc(a.etiquetas.slice(0, 3).join(' · '))}${a.etiquetas.length > 3 ? '…' : ''}</small>` : '';
+      return `<button type="button" class="vinculo tipo-${a.tipo}" data-ir="${esc(otro.id)}" title="${esc(TIPO_VINCULO[a.tipo])}"><b>${esc(otro.codigo)}</b> ${esc(otro.titulo)}${comparten}</button>`;
+    };
+    const grupos = (lista, lado, vacio) => {
+      if (!lista.length) return `<p class="nota">${vacio}</p>`;
+      return ['indispensable', 'deseable', 'habilidad', 'proyecto'].map(t => {
+        const del = lista.filter(a => a.tipo === t);
+        return del.length ? `<h5 class="tipo-vinculo"><i class="linea-${t}"></i>${esc(TIPO_VINCULO[t])} (${del.length})</h5><div class="vinculos">${del.map(a => vinculo(a, lado)).join('')}</div>` : '';
+      }).join('');
     };
     const est = estado.estudiante ? Modelo.estado(m, id, estado.completados) : null;
-    const faltan = est === 'bloqueado' ? requiere.filter(a => !estado.completados.has(a.origen)).map(a => m.porId.get(a.origen).codigo) : [];
+    const faltan = est === 'bloqueado' ? requiere.filter(a => a.tipo !== 'deseable' && !estado.completados.has(a.origen)).map(a => m.porId.get(a.origen).codigo) : [];
+    const recomendadas = est && est !== 'completado' ? requiere.filter(a => a.tipo === 'deseable' && !estado.completados.has(a.origen)).map(a => m.porId.get(a.origen).codigo) : [];
     cont.innerHTML = `
       <article class="ficha">
         <div class="ficha-cabecera">
@@ -139,21 +150,29 @@
         <div class="etiquetas">
           <span class="etiqueta" style="background:${rama.color}">${esc(rama.corto)}</span>
           ${n.ramasSecundarias.map(r => { const x = m.ramaPorId.get(r); return `<span class="etiqueta secundaria" style="color:${x.color}">${esc(x.corto)}</span>`; }).join('')}
+          ${n.herramientas.map(t => `<span class="etiqueta herramienta">${esc(t)}</span>`).join('')}
         </div>
         ${est ? `<p class="nota" style="font-size:.82rem;color:${est === 'bloqueado' ? '#C2417A' : '#3C8D5A'}">
-          ${est === 'completado' ? '✔ Completada. Clic de nuevo para desmarcar.' : est === 'disponible' ? '★ Disponible: haz clic en el nodo para marcarla como completada.' : `🔒 Bloqueada: completa antes ${esc(faltan.join(', '))}.`}</p>` : ''}
+          ${est === 'completado' ? '✔ Completada. Clic de nuevo para desmarcar.' : est === 'disponible' ? '★ Disponible: haz clic en el nodo para marcarla como completada.' : `🔒 Bloqueada: completa antes ${esc(faltan.join(', '))}.`}${recomendadas.length ? `<br>Recomendado antes: ${esc(recomendadas.join(', '))}.` : ''}</p>` : ''}
         ${n.habilidades.length ? `<h4>Habilidades</h4>
           <ul class="habilidades">${n.habilidades.map(h => `
             <li><span>${esc(h.nombre)}</span>${h.rango === null || h.rango === undefined ? '<span class="sin-rango">sin nivel</span>'
               : `<span class="rangos" title="${Modelo.RANGOS[h.rango]}">${[0, 1, 2].map(k => `<i class="${k <= h.rango ? 'lleno' : ''}"></i>`).join('')}</span>`}</li>`).join('')}
           </ul>` : '<p class="nota">Integra lo trabajado en las guías del nivel.</p>'}
         <h4>Requiere (${requiere.length})</h4>
-        ${requiere.length ? `<div class="vinculos">${requiere.map(a => vinculo(a, 'origen')).join('')}</div>` : '<p class="nota">Es un punto de entrada: no tiene prerrequisitos.</p>'}
+        ${grupos(requiere, 'origen', 'Es un punto de entrada: no tiene prerrequisitos.')}
         <h4>Desbloquea (${desbloquea.length})</h4>
-        ${desbloquea.length ? `<div class="vinculos">${desbloquea.map(a => vinculo(a, 'destino')).join('')}</div>` : '<p class="nota">Ninguna guía posterior continúa estas habilidades.</p>'}
-        <p class="nota">Las conexiones se calculan a partir de las habilidades compartidas entre niveles. Pasa el cursor sobre cada vínculo para ver qué habilidad los une.</p>
+        ${grupos(desbloquea, 'destino', 'Ninguna guía posterior depende de esta.')}
+        <p class="nota">${esc(NOTA_FUENTE[m.fuente])} Debajo de cada vínculo aparecen las habilidades que comparten.</p>
       </article>`;
   }
+
+  const TIPO_VINCULO = { indispensable: 'Indispensables', deseable: 'Deseables', habilidad: 'Por habilidad compartida', proyecto: 'Proyecto integrador' };
+  const NOTA_FUENTE = {
+    equipo: 'Conexiones del grafo de dependencias del equipo pedagógico.',
+    habilidades: 'Conexiones derivadas de las habilidades que se repiten entre niveles.',
+    ambas: 'Conexiones del grafo del equipo más las derivadas de habilidades compartidas.'
+  };
 
   // ── Ramas y foco ────────────────────────────────────────────────
   function insigniaHTML(rama) {
@@ -245,7 +264,7 @@
 
   // ── Diagnóstico ─────────────────────────────────────────────────
   function renderDiagnostico() {
-    const { alertas, matriz } = Modelo.diagnosticar(m);
+    const { alertas, matriz } = Modelo.diagnosticar(m, { matriz: estado.matriz });
     const guias = m.nodos.filter(n => n.tipo !== 'proyecto');
     const habilidades = new Set(guias.flatMap(n => n.habilidades.map(h => h._clave)));
     const maximo = Math.max(1, ...matriz.flat());
@@ -257,6 +276,10 @@
         <div><b>${m.aristas.filter(a => a.tipo !== 'proyecto').length}</b><span>conexiones</span></div>
       </div>
       <h4 class="titulo-panel" style="margin-top:6px">Equilibrio por rama y ${esc((m.proyecto.vocabulario?.nivel || 'nivel').toLowerCase())}</h4>
+      <div class="chips" id="modo-matriz" style="margin:6px 0 8px">
+        <button type="button" class="chip" data-matriz="todas" aria-pressed="${estado.matriz === 'todas'}">Todas las asociaciones</button>
+        <button type="button" class="chip" data-matriz="principal" aria-pressed="${estado.matriz === 'principal'}">Solo eje principal</button>
+      </div>
       <table class="matriz">
         <thead><tr><th></th>${m.proyecto.niveles.map(n => `<th>${esc(n.corto)}</th>`).join('')}</tr></thead>
         <tbody>${m.proyecto.ramas.map((r, i) => `<tr><th class="fila" title="${esc(r.nombre)}">${esc(r.corto.length > 11 ? r.corto.slice(0, 10) + '.' : r.corto)}</th>${matriz[i].map(v => {
@@ -264,7 +287,9 @@
           return `<td style="background:${v ? hexA(r.color, a) : '#F4F6FB'};color:${a > 0.55 ? '#fff' : '#58595B'}">${v ? fraccion(v) : ''}</td>`;
         }).join('')}</tr>`).join('')}</tbody>
       </table>
-      <p class="nota" style="margin-bottom:14px">Guías por celda. Un eje secundario cuenta como ½.</p>
+      <p class="nota" style="margin-bottom:14px">${estado.matriz === 'todas'
+        ? 'Guías asociadas a cada rama, como eje principal o secundario. Es el mismo conteo del mapa de calor «Currículo en Pensamiento Computacional» del equipo.'
+        : 'Guías cuyo eje principal es cada rama.'}</p>
       <h4 class="titulo-panel">Alertas de diseño (${alertas.length})</h4>
       <ul class="alertas">${alertas.map(a => `
         <li><button type="button" class="alerta ${a.gravedad}" ${a.nodo ? `data-ir="${esc(a.nodo)}"` : `data-rama="${esc(a.rama)}"`}>
@@ -342,6 +367,7 @@
       estado.proyecto = proyecto;
       estado.completados = new Set(datos.completados || []);
       estado.rutasUsuario = datos.rutasUsuario || [];
+      if (Modelo.FUENTES[datos.fuente]) estado.fuente = datos.fuente;
       estado.seleccion = estado.rutaActiva = estado.foco = null;
       estado.filtros = { herramientas: new Set(), rangos: new Set(), desde: 0, hasta: Infinity };
       guardar();
@@ -350,16 +376,51 @@
     lector.readAsText(archivo);
   }
 
+  async function importarGrafo(archivo) {
+    let resultado;
+    try {
+      resultado = Grafo.aplicar(estado.proyecto, await Hoja.leer(archivo));
+    } catch (e) {
+      mostrarDialogo('No se pudo importar la hoja', `<p>${esc(e.message)}</p>`);
+      return;
+    }
+    const errores = Modelo.validar(resultado.proyecto);
+    if (errores.length) { mostrarDialogo('No se pudo importar la hoja', `<ul>${errores.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`); return; }
+    estado.proyecto = resultado.proyecto;
+    estado.fuente = 'equipo';
+    guardar();
+    reconstruir();
+    const r = resultado.resumen;
+    const lista = (titulo, xs) => (xs.length ? `<h4>${titulo} (${xs.length})</h4><p>${xs.map(esc).join(', ')}</p>` : '');
+    mostrarDialogo('Grafo importado', `
+      <p><b>${r.filas}</b> filas leídas de «${esc(archivo.name)}»: <b>${r.actualizadas}</b> ${r.actualizadas === 1 ? 'guía actualizada' : 'guías actualizadas'} y <b>${r.nuevas.length}</b> ${r.nuevas.length === 1 ? 'nueva' : 'nuevas'}.</p>
+      ${lista('Cambian de eje principal', r.cambiosRama)}
+      ${lista('Guías nuevas (sin título ni habilidades todavía)', r.nuevas)}
+      ${lista('Ramas nuevas', r.ramasNuevas)}
+      ${lista('Niveles nuevos', r.nivelesNuevos)}
+      ${r.avisos.length ? `<h4>Avisos (${r.avisos.length})</h4><ul>${r.avisos.slice(0, 12).map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      <p class="nota">Las conexiones del árbol ahora siguen esta hoja. Revisa la pestaña Diagnóstico.</p>`);
+  }
+
+  function mostrarDialogo(titulo, html) {
+    const d = $('#dialogo');
+    $('#dialogo-titulo').textContent = titulo;
+    $('#dialogo-cuerpo').innerHTML = html;
+    if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
+  }
+
   function accionArchivo(accion) {
     $('#menu-archivo').hidden = true;
     $('#btn-archivo').setAttribute('aria-expanded', 'false');
     if (accion === 'exportar-json') {
       descargar(`${nombreBase()}.json`, JSON.stringify({
-        proyecto: estado.proyecto, rutasUsuario: estado.rutasUsuario, completados: [...estado.completados]
+        proyecto: estado.proyecto, rutasUsuario: estado.rutasUsuario, completados: [...estado.completados], fuente: estado.fuente
       }, null, 2), 'application/json');
     } else if (accion === 'importar-json') $('#archivo-json').click();
     else if (accion === 'exportar-svg') descargar(`${nombreBase()}-${vista.vista}.svg`, vista.exportarSVG().texto, 'image/svg+xml');
     else if (accion === 'exportar-png') exportarPNG();
+    else if (accion === 'importar-grafo') $('#archivo-hoja').click();
+    else if (accion === 'exportar-grafo') descargar(`${nombreBase()}-grafo.xlsx`, Hoja.xlsx(Grafo.filas(estado.proyecto), 'Grafo guías'));
     else if (accion === 'restablecer' && confirm('¿Volver a los datos de ejemplo? Se perderán los cambios, el progreso y las trayectorias propias.')) {
       estado.proyecto = copia(window.PROYECTO_PC);
       estado.completados = new Set(); estado.rutasUsuario = [];
@@ -447,6 +508,21 @@
     document.addEventListener('click', e => { if (!e.target.closest('.menu')) $('#menu-archivo').hidden = true; });
     $('#menu-archivo').addEventListener('click', e => { const b = e.target.closest('[data-accion]'); if (b) accionArchivo(b.dataset.accion); });
     $('#archivo-json').addEventListener('change', e => { if (e.target.files[0]) importar(e.target.files[0]); e.target.value = ''; });
+    $('#archivo-hoja').addEventListener('change', e => { if (e.target.files[0]) importarGrafo(e.target.files[0]); e.target.value = ''; });
+    $('#dialogo-cerrar').addEventListener('click', () => $('#dialogo').close ? $('#dialogo').close() : $('#dialogo').removeAttribute('open'));
+    $('#filtro-fuente').addEventListener('click', e => {
+      const b = e.target.closest('[data-fuente]');
+      if (!b || b.dataset.fuente === estado.fuente) return;
+      estado.fuente = b.dataset.fuente;
+      guardar();
+      reconstruir({ encuadrar: false });
+    });
+    $('#diagnostico').addEventListener('click', e => {
+      const b = e.target.closest('[data-matriz]');
+      if (!b) return;
+      estado.matriz = b.dataset.matriz;
+      renderDiagnostico();
+    });
 
     // Vínculos y alertas que llevan a un nodo o una rama
     document.addEventListener('click', e => {
@@ -508,6 +584,7 @@
   estado.proyecto = guardado ? guardado.proyecto : copia(window.PROYECTO_PC);
   estado.completados = new Set(guardado?.completados || []);
   estado.rutasUsuario = guardado?.rutasUsuario || [];
+  if (Modelo.FUENTES[guardado?.fuente]) estado.fuente = guardado.fuente;
   enlazar();
   reconstruir();
 })();

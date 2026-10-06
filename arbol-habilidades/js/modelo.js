@@ -15,12 +15,21 @@ const Modelo = (() => {
     { id: 'hojas', nombre: 'Hojas de cálculo', re: /excel|hojas? de c[aá]lculo/i },
     { id: 'phet', nombre: 'PhET', re: /phet/i },
     { id: 'tinkercad', nombre: 'Tinkercad', re: /t[h]?inkercad/i },
-    { id: 'phyphox', nombre: 'Phyphox', re: /phyphox|physics tracker/i }
+    { id: 'phyphox', nombre: 'Phyphox', re: /phyphox|physics tracker/i },
+    { id: 'teachable', nombre: 'Teachable Machine', re: /teachable/i }
   ];
+
+  /** Fuentes de conexiones: el grafo del equipo, las habilidades compartidas o ambas. */
+  const FUENTES = {
+    equipo: 'Dependencias del equipo',
+    habilidades: 'Habilidades compartidas',
+    ambas: 'Ambas'
+  };
+  const PRIORIDAD_TIPO = { indispensable: 4, deseable: 3, habilidad: 2, proyecto: 1 };
 
   function normalizar(texto) {
     return String(texto).toLowerCase()
-      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   }
 
@@ -49,21 +58,28 @@ const Modelo = (() => {
     return errores.slice(0, 8);
   }
 
-  /** Construye la estructura de trabajo a partir del proyecto. */
-  function preparar(proyecto) {
+  /**
+   * Construye la estructura de trabajo a partir del proyecto.
+   * opciones.fuente: 'equipo' (prerrequisitos indispensables y deseables),
+   * 'habilidades' (cadenas de mejora derivadas) o 'ambas'.
+   */
+  function preparar(proyecto, opciones = {}) {
+    const fuente = FUENTES[opciones.fuente] ? opciones.fuente : 'equipo';
     const nivelIdx = new Map(proyecto.niveles.map((n, i) => [n.id, i]));
     const ramaIdx = new Map(proyecto.ramas.map((r, i) => [r.id, i]));
     const ramaPorId = new Map(proyecto.ramas.map(r => [r.id, r]));
 
     const nodos = proyecto.nodos.map(n => {
       const habilidades = (n.habilidades || []).map(hab => ({ ...hab, _clave: claveDe(hab) }));
-      const texto = [n.titulo, ...habilidades.map(x => x.nombre)].join(' ');
+      const texto = [n.titulo, ...habilidades.map(x => x.nombre), ...(n.herramientas || [])].join(' ');
       const rangos = habilidades.map(x => x.rango).filter(r => r !== null && r !== undefined);
       return {
         ...n,
         habilidades,
         ramasSecundarias: (n.ramasSecundarias || []).filter(r => ramaIdx.has(r) && r !== n.rama),
         prerrequisitos: n.prerrequisitos || [],
+        deseables: (n.deseables || []).filter(d => !(n.prerrequisitos || []).includes(d)),
+        herramientas: n.herramientas || [],
         _nivel: nivelIdx.get(n.nivel),
         _rama: ramaIdx.get(n.rama),
         _herramientas: HERRAMIENTAS.filter(t => t.re.test(texto)).map(t => t.id),
@@ -84,42 +100,55 @@ const Modelo = (() => {
     const rangoDe = o => o.hab.rango ?? -1;
 
     const aristas = new Map();
-    const agregar = (origen, destino, tipo, etiqueta) => {
-      if (origen === destino) return;
+    const agregar = (origen, destino, tipo, etiquetas = []) => {
+      if (origen === destino || !porId.has(origen) || !porId.has(destino)) return;
       const k = `${origen}→${destino}`;
       if (!aristas.has(k)) aristas.set(k, { id: k, origen, destino, tipo, etiquetas: [] });
       const a = aristas.get(k);
-      if (tipo === 'manual') a.tipo = 'manual';
-      if (etiqueta && !a.etiquetas.includes(etiqueta)) a.etiquetas.push(etiqueta);
+      if (PRIORIDAD_TIPO[tipo] > PRIORIDAD_TIPO[a.tipo]) a.tipo = tipo;
+      etiquetas.forEach(e => { if (!a.etiquetas.includes(e)) a.etiquetas.push(e); });
+    };
+    // Habilidades que comparten dos guías (para explicar cada conexión).
+    const compartidas = (o, d) => {
+      const claves = new Set(porId.get(o).habilidades.map(x => x._clave));
+      return porId.get(d).habilidades.filter(x => claves.has(x._clave)).map(x => x.nombre);
     };
 
-    apariciones.forEach(lista => {
-      lista.forEach(actual => {
-        const mismoNivel = lista.filter(o => o.nodo._nivel === actual.nodo._nivel
-          && rangoDe(o) < rangoDe(actual) && compararCodigos(o.nodo.codigo, actual.nodo.codigo) < 0);
-        let candidatas = mismoNivel;
-        if (!candidatas.length) {
-          const previas = lista.filter(o => o.nodo._nivel < actual.nodo._nivel);
-          if (!previas.length) return;
-          const nivelPrevio = Math.max(...previas.map(o => o.nodo._nivel));
-          candidatas = previas.filter(o => o.nodo._nivel === nivelPrevio);
-        }
-        const mejor = Math.max(...candidatas.map(rangoDe));
-        candidatas.filter(o => rangoDe(o) === mejor)
-          .forEach(o => agregar(o.nodo.id, actual.nodo.id, 'habilidad', actual.hab.nombre));
+    // 1) Grafo del equipo: prerrequisitos indispensables y deseables.
+    if (fuente !== 'habilidades') {
+      nodos.forEach(n => {
+        n.prerrequisitos.forEach(pid => agregar(pid, n.id, 'indispensable', porId.has(pid) ? compartidas(pid, n.id) : []));
+        n.deseables.forEach(pid => agregar(pid, n.id, 'deseable', porId.has(pid) ? compartidas(pid, n.id) : []));
       });
-    });
+    }
 
-    // 2) Proyectos integradores: reciben todas las guías de su nivel.
-    nodos.filter(n => n.tipo === 'proyecto').forEach(p => {
+    // 2) Cadenas de mejora: cada aparición de una habilidad se conecta con sus
+    //    apariciones más recientes de mayor rango: las del nivel anterior más
+    //    cercano o, dentro del mismo nivel, las guías previas de rango menor.
+    if (fuente !== 'equipo') {
+      apariciones.forEach(lista => {
+        lista.forEach(actual => {
+          const mismoNivel = lista.filter(o => o.nodo._nivel === actual.nodo._nivel
+            && rangoDe(o) < rangoDe(actual) && compararCodigos(o.nodo.codigo, actual.nodo.codigo) < 0);
+          let candidatas = mismoNivel;
+          if (!candidatas.length) {
+            const previas = lista.filter(o => o.nodo._nivel < actual.nodo._nivel);
+            if (!previas.length) return;
+            const nivelPrevio = Math.max(...previas.map(o => o.nodo._nivel));
+            candidatas = previas.filter(o => o.nodo._nivel === nivelPrevio);
+          }
+          const mejor = Math.max(...candidatas.map(rangoDe));
+          candidatas.filter(o => rangoDe(o) === mejor)
+            .forEach(o => agregar(o.nodo.id, actual.nodo.id, 'habilidad', [actual.hab.nombre]));
+        });
+      });
+    }
+
+    // 3) Proyectos integradores sin prerrequisitos propios: reciben las guías de su nivel.
+    nodos.filter(n => n.tipo === 'proyecto' && (fuente === 'habilidades' || !n.prerrequisitos.length)).forEach(p => {
       nodos.filter(n => n.tipo !== 'proyecto' && n._nivel === p._nivel)
         .forEach(n => agregar(n.id, p.id, 'proyecto'));
     });
-
-    // 3) Prerrequisitos definidos a mano por el diseñador.
-    nodos.forEach(n => n.prerrequisitos.forEach(pid => {
-      if (porId.has(pid)) agregar(pid, n.id, 'manual');
-    }));
 
     const listaAristas = [...aristas.values()];
     const entrantes = new Map(nodos.map(n => [n.id, []]));
@@ -129,8 +158,11 @@ const Modelo = (() => {
       salientes.get(a.origen).push(a);
     });
 
+    // Las conexiones que llegan a un proyecto se dibujan solo al seleccionarlo.
+    listaAristas.forEach(a => { a.aProyecto = porId.get(a.destino).tipo === 'proyecto'; });
+
     return {
-      proyecto, nodos, porId, aristas: listaAristas, entrantes, salientes,
+      proyecto, fuente, nodos, porId, aristas: listaAristas, entrantes, salientes,
       nivelIdx, ramaIdx, ramaPorId, apariciones
     };
   }
@@ -159,21 +191,23 @@ const Modelo = (() => {
   /** Estado de un nodo en modo estudiante. */
   function estado(m, id, completados) {
     if (completados.has(id)) return 'completado';
-    const req = m.entrantes.get(id) || [];
+    const req = (m.entrantes.get(id) || []).filter(a => a.tipo !== 'deseable');
     return req.every(a => completados.has(a.origen)) ? 'disponible' : 'bloqueado';
   }
 
-  /** Alertas de diseño pedagógico. */
-  function diagnosticar(m) {
+  /**
+   * Alertas de diseño pedagógico y matriz de equilibrio rama × nivel.
+   * opciones.matriz: 'todas' cuenta cada asociación (principal o secundaria) como 1,
+   * igual que el mapa de calor del equipo; 'principal' cuenta solo el eje principal.
+   */
+  function diagnosticar(m, opciones = {}) {
     const alertas = [];
     const { proyecto, nodos } = m;
 
-    // Equilibrio por rama y nivel
     const matriz = proyecto.ramas.map(() => proyecto.niveles.map(() => 0));
     nodos.forEach(n => {
-      if (n.tipo === 'proyecto') return;
       matriz[n._rama][n._nivel] += 1;
-      n.ramasSecundarias.forEach(r => { matriz[m.ramaIdx.get(r)][n._nivel] += 0.5; });
+      if (opciones.matriz !== 'principal') n.ramasSecundarias.forEach(r => { matriz[m.ramaIdx.get(r)][n._nivel] += 1; });
     });
     proyecto.ramas.forEach((r, i) => {
       const propias = nodos.filter(n => n.tipo !== 'proyecto' && n._rama === i).length;
@@ -186,15 +220,33 @@ const Modelo = (() => {
       }
     });
 
+    // Coherencia del grafo del equipo
+    nodos.forEach(n => {
+      [['prerrequisitos', 'indispensable'], ['deseables', 'deseable']].forEach(([campo, nombre]) => {
+        n[campo].forEach(pid => {
+          const p = m.porId.get(pid);
+          if (!p) {
+            alertas.push({ tipo: 'grafo', gravedad: 'alta', nodo: n.id,
+              texto: `${n.codigo} tiene como ${nombre} una guía que no existe (${pid}).`,
+              detalle: 'Revisa el código en la hoja del grafo.' });
+          } else if (p._nivel > n._nivel || (p._nivel === n._nivel && compararCodigos(p.codigo, n.codigo) > 0)) {
+            alertas.push({ tipo: 'grafo', gravedad: 'alta', nodo: n.id,
+              texto: `${n.codigo} depende de ${p.codigo}, que llega después.`,
+              detalle: `Prerrequisito ${nombre} posterior a la guía.` });
+          }
+        });
+      });
+    });
+
     // Huérfanos
     nodos.filter(n => n.tipo !== 'proyecto').forEach(n => {
-      const entra = m.entrantes.get(n.id).filter(a => a.tipo !== 'proyecto').length;
-      const sale = m.salientes.get(n.id).filter(a => a.tipo !== 'proyecto').length;
+      const entra = m.entrantes.get(n.id).length;
+      const sale = m.salientes.get(n.id).filter(a => !a.aProyecto).length;
       if (!entra && !sale) {
         alertas.push({
           tipo: 'huerfano', gravedad: 'media', nodo: n.id,
           texto: `${n.codigo} ${n.titulo} no se conecta con otras guías.`,
-          detalle: 'Ninguna habilidad continúa ni viene de otro nivel.'
+          detalle: 'No tiene prerrequisitos ni otras guías dependen de ella.'
         });
       }
     });
@@ -268,5 +320,5 @@ const Modelo = (() => {
     return encontrado;
   }
 
-  return { RANGOS, HERRAMIENTAS, normalizar, validar, preparar, recorrer, estado, diagnosticar, compararCodigos };
+  return { RANGOS, HERRAMIENTAS, FUENTES, normalizar, validar, preparar, recorrer, estado, diagnosticar, compararCodigos };
 })();

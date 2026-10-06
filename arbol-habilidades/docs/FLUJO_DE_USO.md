@@ -24,7 +24,7 @@ ya contiene todo lo que un *skill tree* necesita. La herramienta solo lo reorgan
 | Guías (p. ej. *6.3 Invernaderos*) | **Nodos de misión** | Unidades didácticas |
 | Aprendizajes (p. ej. *N0 – Variables en micro:bit*) | **Habilidades** dentro del nodo | Resultados de aprendizaje |
 | N0 / N1 / N2 | **Rango** de la habilidad (●○○ / ●●○ / ●●●) | Inicial / intermedio / avanzado |
-| Líneas entre guías | **Prerrequisitos** (aristas que "desbloquean") | Dependencias entre unidades |
+| Líneas entre guías / *Anexo 1. Grafo guías* | **Prerrequisitos** indispensables y deseables (aristas que "desbloquean") | Dependencias entre unidades |
 | — | **Trayectorias** nombradas (rutas de especialización) | Itinerarios formativos |
 
 > Una **habilidad** (p. ej. *Condicionales*) puede aparecer en varios nodos con rangos
@@ -72,13 +72,15 @@ flowchart LR
 
 ### Paso 3 · Cargar contenidos
 Dos vías que conviven:
-- **Importar** una hoja de cálculo (CSV / Excel / Google Sheets) con una fila por habilidad:
-  `nivel | código | nodo | rama | habilidad | rango | prerrequisitos | herramienta`.
+- **Importar** la hoja del grafo que ya usa el equipo (Excel / CSV), una fila por guía:
+  `Guía | Guía indispensable | Guía deseable | Subcategoría | Subcategoría 2 | Subcategoría 3 | Herramienta computacional`. ✅ Disponible.
+- *(Pendiente)* una segunda hoja con una fila por habilidad para cargar títulos y rangos N0/N1/N2.
 - **Editar en pantalla**: clic en un hueco del árbol → "Nuevo nodo" → formulario lateral.
 
 ### Paso 4 · Conectar prerrequisitos
-- Arrastrar desde un nodo a otro para crear la conexión "A desbloquea B".
-- Sugerencias automáticas: si una habilidad sube de rango (N0 → N1), se propone la conexión.
+- Fuente principal: el grafo del equipo (**indispensable** = bloquea, **deseable** = recomienda).
+- Lente complementaria: conexiones derivadas cuando una habilidad sube de rango (N0 → N1); la vista *Ambas* muestra dónde coinciden y dónde no.
+- *(Fase 2)* Arrastrar desde un nodo a otro para crear la conexión "A desbloquea B".
 
 ### Paso 5 · Explorar con zoom semántico
 El nivel de detalle cambia con el zoom, como en un mapa:
@@ -135,6 +137,7 @@ sensación "juego": nodos que brillan al desbloquearse, conexiones animadas y ra
 | Carga de contenidos | **Hoja de cálculo + editor en pantalla** |
 | Guardado (v1) | **Navegador + archivo JSON** para compartir |
 | Primer caso | **Libro de Pensamiento Computacional** con los datos del póster BC |
+| Fuente de verdad de las dependencias | **Anexo 1. Grafo guías** del equipo (ejes, herramientas, indispensables y deseables) |
 
 ## 6. Propuesta técnica
 

@@ -40,8 +40,11 @@ const Vista = (() => {
     .borde-col { fill: none; stroke-width: 1.4; stroke-dasharray: 1.5 4.5; stroke-linecap: round; }
 
     .arista { fill: none; stroke-width: 1.3; vector-effect: non-scaling-stroke; opacity: .34; transition: opacity .25s, stroke-width .25s; }
-    .arista.tipo-proyecto { stroke-dasharray: 3 4; opacity: 0; }
-    .arista.tipo-manual { stroke-width: 2; opacity: .6; }
+    .arista.tipo-indispensable { stroke-width: 1.6; opacity: .42; }
+    .arista.tipo-deseable { stroke-dasharray: 6 5; opacity: .38; }
+    .arista.tipo-habilidad { opacity: .3; }
+    .fuente-ambas .arista.tipo-habilidad { stroke-dasharray: 1 4; stroke-linecap: round; stroke-width: 1.6; }
+    .arista.tipo-proyecto { stroke-dasharray: 3 4; }
     .arista.atras { stroke: ${C.azul} !important; stroke-width: 1.4; opacity: .4 !important; }
     .arista.atras.directa { stroke-width: 3; opacity: .95 !important; }
     .arista.adelante { stroke: ${C.morado} !important; stroke-width: 1.4; opacity: .4 !important; }
@@ -51,6 +54,7 @@ const Vista = (() => {
     .hay-filtro .arista, .hay-foco .arista { opacity: .1; }
     .hay-foco .arista.en-foco { opacity: .5; }
     .hay-ruta .arista { opacity: .04 !important; }
+    .arista.a-proyecto:not(.atras):not(.adelante) { opacity: 0 !important; }
 
     .ruta-linea { fill: none; stroke: ${C.morado}; stroke-width: 4; vector-effect: non-scaling-stroke; stroke-linecap: round; opacity: .9; stroke-dasharray: 14 10; animation: avanzar 1.4s linear infinite; }
     .ruta-sombra { fill: none; stroke: ${C.azul}; stroke-width: 13; vector-effect: non-scaling-stroke; stroke-linecap: round; opacity: .22; }
@@ -251,6 +255,7 @@ const Vista = (() => {
 
     function dibujar(modelo) {
       m = modelo;
+      svg.classed('fuente-equipo fuente-habilidades fuente-ambas', false).classed(`fuente-${m.fuente}`, true);
       geoR = disponerRadial(m);
       geoP = disponerPoster(m);
       dibujarFondoRadial();
@@ -355,7 +360,7 @@ const Vista = (() => {
 
     function dibujarAristas() {
       selAristas = capaAristas.selectAll('path.arista').data(m.aristas, a => a.id).join('path')
-        .attr('class', a => `arista tipo-${a.tipo}`)
+        .attr('class', a => `arista tipo-${a.tipo}${a.aProyecto ? ' a-proyecto' : ''}`)
         .attr('stroke', a => m.ramaPorId.get(m.porId.get(a.origen).rama).color)
         .attr('d', a => camino(pos(m.porId.get(a.origen)), pos(m.porId.get(a.destino))));
     }

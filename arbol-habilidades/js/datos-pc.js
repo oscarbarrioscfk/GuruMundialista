@@ -9,18 +9,18 @@
  *   clave   → identificador de la habilidad para encadenarla entre guías
  *             (dos habilidades con la misma clave forman una "cadena de mejora")
  *
- * Los ejes secundarios son una lectura aproximada de las líneas del póster:
- * conviene validarlos con el equipo pedagógico.
+ * Los ejes (principal y secundarios), las herramientas y los prerrequisitos
+ * vienen del grafo del equipo pedagógico (GRAFO_EQUIPO, al final del archivo).
  */
 (function () {
   const h = (nombre, rango, clave) => ({ nombre, rango: rango ?? null, clave: clave || null });
   const guia = (codigo, titulo, nivel, rama, habilidades, secundarias) => ({
     id: codigo, codigo, titulo, nivel, rama, tipo: 'guia',
-    ramasSecundarias: secundarias || [], habilidades, prerrequisitos: []
+    ramasSecundarias: secundarias || [], habilidades, herramientas: [], prerrequisitos: [], deseables: []
   });
   const proyecto = (codigo, nivel, rama) => ({
     id: codigo, codigo, titulo: 'Evaluación y proyectos', nivel, rama, tipo: 'proyecto',
-    ramasSecundarias: [], habilidades: [], prerrequisitos: []
+    ramasSecundarias: [], habilidades: [], herramientas: [], prerrequisitos: [], deseables: []
   });
 
   window.PROYECTO_PC = {
@@ -69,7 +69,7 @@
         h('Identificar patrones', null, 'patrones'),
         h('Comparar cantidades', null, 'conteo'),
         h('Utilizar tablas de una entrada', null, 'tablas')
-      ], ['DAT']),
+      ]),
       guia('T.3', 'Un mundo de dinosaurios', 'T', 'ALG', [
         h('Seguir instrucciones', null, 'instrucciones'),
         h('Encontrar similitudes y diferencias', null, 'clasificar'),
@@ -80,7 +80,7 @@
         h('Crear secuencias usando características', null, 'secuencias'),
         h('Seguir instrucciones', null, 'instrucciones')
       ]),
-      guia('T.5', 'Come galletas', 'T', 'LOG', [
+      guia('T.5', 'Come galletas', 'T', 'ALG', [
         h('Seguir instrucciones de movimientos con flechas', null, 'instrucciones'),
         h('Desplazarse en un plano', null, 'flechas')
       ]),
@@ -100,7 +100,7 @@
         h('Realizar desplazamientos siguiendo instrucciones', null, 'instrucciones'),
         h('Usar un lenguaje de flechas que representan instrucciones', null, 'flechas'),
         h('Programar un pequeño robot tipo Bee-bot', null, 'programar-bloques')
-      ], ['LOG']),
+      ]),
       guia('1.4', 'Clasifiquemos y contemos', '1', 'DAT', [
         h('Clasificar objetos según características', null, 'clasificar'),
         h('Clasificar en tablas de una y dos entradas', null, 'tablas')
@@ -120,7 +120,7 @@
         h('Programar en bloques', 0, 'programar-bloques'),
         h('Usar un editor para programar', 0, 'editor'),
         h('ScratchJr', 0, 'scratchjr')
-      ], ['LOG']),
+      ]),
       guia('2.3', 'Una fiesta de cumpleaños', '2', 'DAT', [
         h('Construir tablas', null, 'tablas'),
         h('Construir pictogramas', null, 'graficas'),
@@ -141,24 +141,24 @@
       guia('3.1', 'Un lenguaje para hablar con los computadores', '3', 'ALG', [
         h('Programar en bloques', 1, 'programar-bloques'),
         h('Scratch', 0, 'scratch')
-      ], ['LOG']),
+      ]),
       guia('3.2', 'El lado creativo', '3', 'ALG', [
         h('Programar en bloques', 1, 'programar-bloques'),
         h('Usar un editor para programar', 1, 'editor'),
         h('Scratch', 1, 'scratch')
-      ], ['LOG']),
+      ]),
       guia('3.3', 'Por las ramas', '3', 'DAT', [
         h('Hacer clasificaciones binarias', null, 'clasificar'),
         h('Organizar según criterios', null, 'clasificar')
       ]),
-      guia('3.4', 'Te cuento', '3', 'LOG', [
+      guia('3.4', 'Te cuento', '3', 'ALG', [
         h('Programar en bloques', 1, 'programar-bloques'),
         h('Usar un editor para programar', 1, 'editor'),
         h('Scratch: escenarios y animaciones', 1, 'scratch')
       ]),
       guia('3.5', 'Estamos seguros', '3', 'SEG', [
         h('Desarrollar actividades sobre privacidad y seguridad', null, 'ciberseguridad')
-      ], ['ETI']),
+      ]),
 
       // ── Grado 4° ──────────────────────────────────────────────────
       guia('4.1', 'Figuras y mosaicos', '4', 'ALG', [
@@ -169,36 +169,36 @@
         h('Entradas y salidas', 0, 'entradas-salidas'),
         h('Uso de sensores del celular', 0, 'sensores'),
         h('Registro de datos', 0, 'registro-datos')
-      ], ['FIS']),
+      ]),
       guia('4.3', 'Muchos problemas, una solución', '4', 'ALG', [
         h('Algoritmos', 0, 'algoritmos'),
         h('Scratch: variables y operaciones', 1, 'scratch')
-      ], ['LOG']),
-      guia('4.4', 'A que te cojo ratón', '4', 'LOG', [
+      ]),
+      guia('4.4', 'A que te cojo ratón', '4', 'ALG', [
         h('Programar bucles', 0, 'bucles'),
         h('Scratch: bucles y condicionales', 2, 'scratch')
       ]),
       guia('4.5', 'Imágenes reales o realistas', '4', 'SEG', [
         h('Reconocer características de la seguridad de la información personal', null, 'ciberseguridad'),
         h('Reconocer imágenes falsas', null, 'desinformacion')
-      ], ['ETI']),
+      ]),
 
       // ── Grado 5° ──────────────────────────────────────────────────
       guia('5.1', 'Luces-códigos', '5', 'ALG', [
         h('MakeCode · micro:bit', 0, 'microbit')
-      ], ['FIS']),
+      ]),
       guia('5.2', 'Salvando tortugas', '5', 'DAT', [
         h('MakeCode · micro:bit', 1, 'microbit'),
         h('Condicionales', 0, 'condicionales'),
         h('Conexión micro:bit', 0, 'pines')
-      ], ['FIS']),
-      guia('5.3', 'Laberinto', '5', 'LOG', [
+      ]),
+      guia('5.3', 'Laberinto', '5', 'ALG', [
         h('MakeCode · micro:bit', 1, 'microbit'),
         h('Condicionales', 1, 'condicionales')
-      ], ['FIS']),
+      ]),
       guia('5.4', '"Pescadores de datos"', '5', 'SEG', [
         h('Reflexión sobre ciberseguridad y estrategias de prevención del phishing', null, 'ciberseguridad')
-      ], ['EQU']),
+      ]),
       guia('5.5', 'Máquinas que aprenden', '5', 'IA', [
         h('Reconocer características de las máquinas que aprenden', null, 'ia-conceptos')
       ]),
@@ -210,17 +210,17 @@
         h('Condicionales', 1, 'condicionales'),
         h('Variables aleatorias', 0, 'aleatoriedad'),
         h('Bucles', 0, 'bucles')
-      ], ['FIS']),
+      ]),
       guia('6.2', '¿Cómo se propagan los virus?', '6', 'LOG', [
         h('Scratch', 1, 'scratch'),
         h('Funciones', 0, 'funciones')
-      ], ['MOD']),
+      ]),
       guia('6.3', 'Invernaderos', '6', 'DAT', [
         h('Variables en micro:bit', 0, 'variables'),
         h('Sensores de micro:bit', 0, 'sensores'),
         h('Operaciones entre variables', 0, 'variables'),
         h('Uso de pines', 0, 'pines')
-      ], ['FIS']),
+      ]),
       guia('6.4', 'Congélate', '6', 'LOG', [
         h('Condicionales', 1, 'condicionales'),
         h('Lógica booleana', 1, 'logica-booleana')
@@ -228,7 +228,7 @@
       guia('6.5', 'Entrenando algoritmos', '6', 'IA', [
         h('Identificar características y sesgos en la inteligencia artificial', null, 'ia-sesgos'),
         h('Programar mecanismos básicos de aprendizaje', null, 'ia-conceptos')
-      ], ['EQU']),
+      ]),
       proyecto('6.6', '6', 'DAT'),
 
       // ── Grado 7° ──────────────────────────────────────────────────
@@ -242,14 +242,14 @@
         h('Arreglos', 0, 'arreglos'),
         h('Variables y operaciones', 2, 'variables'),
         h('Depuración', 0, 'depuracion')
-      ], ['FIS']),
+      ]),
       guia('7.3', 'Simulaciones azarosas', '7', 'DAT', [
         h('MakeCode', 1, 'microbit'),
         h('Bucles', 1, 'bucles'),
         h('Variables aleatorias', 1, 'aleatoriedad'),
         h('Funciones', 1, 'funciones'),
         h('Radio', 0, 'radio')
-      ], ['MOD']),
+      ]),
       guia('7.4', 'Tiempo atmosférico', '7', 'DAT', [
         h('Excel', 0, 'hojas-calculo')
       ]),
@@ -258,7 +258,7 @@
         h('Comprender un poco más la IA', null, 'ia-conceptos'),
         h('Dar un uso responsable de la IA', null, 'ia-etica'),
         h('Desarrollar prácticas de seguridad en internet', null, 'ciberseguridad')
-      ], ['SEG']),
+      ]),
       proyecto('7.6', '7', 'EQU'),
 
       // ── Grado 8° ──────────────────────────────────────────────────
@@ -281,7 +281,7 @@
         h('micro:bit: entradas/salidas, pines, análogo y digital', 2, 'entradas-salidas'),
         h('Arreglos', 1, 'arreglos'),
         h('Condicionales', 1, 'condicionales')
-      ], ['FIS']),
+      ]),
       guia('8.4', 'Experimentando y simulando en ciencias', '8', 'MOD', [
         h('PhET', 1, 'phet'),
         h('Physics Tracker', 0, 'physics-tracker'),
@@ -329,7 +329,7 @@
       guia('10.1', 'Certezas en la incertidumbre', '10', 'DAT', [
         h('Hojas de cálculo (Excel)', 2, 'hojas-calculo'),
         h('Simulación a partir de expresiones matemáticas', null, 'simulacion')
-      ], ['MOD']),
+      ]),
       guia('10.2', 'Listas en Python', '10', 'LOG', [
         h('Python', 1, 'python'),
         h('Arreglos', 1, 'arreglos'),
@@ -339,10 +339,10 @@
         h('Brechas de género', null, 'genero'),
         h('Estereotipos sobre profesiones', null, 'genero'),
         h('Visualización de datos', null, 'visualizacion')
-      ], ['EQU']),
+      ]),
       guia('10.4', 'Recolecta de datos', '10', 'DAT', [
         h('Phyphox', 0, 'registro-datos')
-      ], ['FIS']),
+      ]),
       guia('10.5', 'Funciones en Python', '10', 'LOG', [
         h('Python', 1, 'python'),
         h('Funciones en Python', 0, 'funciones')
@@ -355,11 +355,11 @@
         h('Implicaciones de la IA', null, 'ia-etica'),
         h('Limitaciones de la IA', null, 'ia-conceptos'),
         h('Rol de hombres y mujeres en STEM', null, 'genero')
-      ], ['SEG', 'EQU']),
+      ]),
       guia('11.2', 'Los datos del mundo', '11', 'DAT', [
         h('Hojas de cálculo', 2, 'hojas-calculo'),
         h('Identificar limitaciones y sesgos de los datos', null, 'sesgos-datos')
-      ], ['ETI']),
+      ]),
       guia('11.3', 'Parqueaderos', '11', 'LOG', [
         h('Python', 1, 'python'),
         h('Tinkercad', 0, 'tinkercad')
@@ -369,7 +369,7 @@
         h('Sensores y actuadores', 2, 'sensores'),
         h('Tinkercad', 0, 'tinkercad'),
         h('Realimentación', 0, 'realimentacion')
-      ], ['FIS']),
+      ]),
       guia('11.5', 'Científicas(os) en las aulas', '11', 'MOD', [
         h('PhET', 0, 'phet')
       ]),
@@ -399,4 +399,90 @@
       }
     ]
   };
+  /*
+   * Grafo de dependencias del equipo pedagógico (Anexo 1. Grafo guías):
+   *   i → guías indispensables · d → guías deseables
+   *   r → subcategorías: la primera es el eje principal, las demás secundarios
+   *   h → herramienta computacional
+   * Es la fuente de verdad para ejes y prerrequisitos; se puede reemplazar
+   * importando la hoja de cálculo desde la aplicación.
+   */
+  const GRAFO_EQUIPO = {
+    'T.1': { i: [], d: [], r: ['ALG'], h: [] },
+    'T.2': { i: ['T.1'], d: [], r: ['ALG', 'DAT'], h: [] },
+    'T.3': { i: ['T.2'], d: [], r: ['ALG', 'LOG'], h: [] },
+    'T.4': { i: ['T.3'], d: [], r: ['ALG'], h: [] },
+    'T.5': { i: ['T.4'], d: [], r: ['ALG', 'LOG'], h: [] },
+    '1.1': { i: [], d: [], r: ['ALG'], h: [] },
+    '1.2': { i: ['1.1'], d: [], r: ['ALG'], h: [] },
+    '1.3': { i: ['1.2'], d: [], r: ['ALG', 'LOG'], h: [] },
+    '1.4': { i: [], d: [], r: ['DAT'], h: [] },
+    '1.5': { i: [], d: [], r: ['SEG'], h: [] },
+    '2.1': { i: [], d: [], r: ['ALG'], h: [] },
+    '2.2': { i: ['2.1'], d: [], r: ['ALG', 'LOG'], h: ['ScratchJr'] },
+    '2.3': { i: [], d: ['1.4'], r: ['DAT'], h: [] },
+    '2.4': { i: ['2.2'], d: [], r: ['LOG'], h: ['ScratchJr'] },
+    '2.5': { i: ['1.5'], d: [], r: ['SEG'], h: [] },
+    '3.1': { i: [], d: ['2.2'], r: ['ALG', 'LOG'], h: ['Scratch'] },
+    '3.2': { i: ['3.1'], d: [], r: ['ALG', 'LOG'], h: ['Scratch'] },
+    '3.3': { i: [], d: ['2.3'], r: ['DAT'], h: [] },
+    '3.4': { i: ['3.2'], d: [], r: ['ALG', 'LOG'], h: ['Scratch'] },
+    '3.5': { i: [], d: ['2.5'], r: ['SEG', 'ETI'], h: [] },
+    '4.1': { i: [], d: ['3.1'], r: ['ALG', 'LOG'], h: ['Scratch'] },
+    '4.2': { i: [], d: [], r: ['DAT', 'FIS'], h: [] },
+    '4.3': { i: ['4.1'], d: [], r: ['ALG', 'LOG'], h: ['Scratch'] },
+    '4.4': { i: ['4.3'], d: [], r: ['ALG', 'LOG'], h: ['Scratch'] },
+    '4.5': { i: [], d: ['3.5'], r: ['SEG', 'ETI'], h: [] },
+    '5.1': { i: [], d: ['4.3'], r: ['ALG', 'LOG', 'FIS'], h: ['MakeCode', 'micro:bit'] },
+    '5.2': { i: ['5.1'], d: [], r: ['DAT', 'LOG', 'FIS'], h: ['MakeCode', 'micro:bit'] },
+    '5.3': { i: ['5.2'], d: [], r: ['ALG', 'LOG', 'FIS'], h: ['MakeCode', 'micro:bit'] },
+    '5.4': { i: ['4.5'], d: [], r: ['SEG'], h: [] },
+    '5.5': { i: [], d: [], r: ['IA', 'EQU'], h: [] },
+    '5.6': { i: ['5.5', '5.4', '5.3', '5.2', '5.1'], d: [], r: ['LOG', 'FIS'], h: ['MakeCode', 'micro:bit'] },
+    '6.1': { i: ['5.1'], d: ['5.3'], r: ['ALG', 'LOG', 'FIS'], h: ['MakeCode', 'micro:bit'] },
+    '6.2': { i: [], d: [], r: ['LOG', 'MOD'], h: ['Scratch'] },
+    '6.3': { i: ['6.1'], d: [], r: ['DAT', 'ALG'], h: ['MakeCode', 'micro:bit'] },
+    '6.4': { i: ['6.2'], d: [], r: ['LOG', 'MOD'], h: [] },
+    '6.5': { i: ['5.5'], d: [], r: ['IA', 'EQU'], h: [] },
+    '6.6': { i: ['6.5', '6.4', '6.3', '6.2', '6.1'], d: [], r: ['DAT', 'MOD'], h: ['MakeCode', 'micro:bit'] },
+    '7.1': { i: ['6.2', '6.4'], d: [], r: ['LOG'], h: ['Scratch'] },
+    '7.2': { i: ['6.3'], d: [], r: ['LOG', 'DAT', 'FIS'], h: ['MakeCode', 'micro:bit'] },
+    '7.3': { i: ['7.2'], d: [], r: ['DAT', 'MOD'], h: ['MakeCode', 'micro:bit'] },
+    '7.4': { i: [], d: ['4.2'], r: ['DAT'], h: ['Excel'] },
+    '7.5': { i: ['6.5'], d: [], r: ['IA', 'ETI', 'SEG'], h: ['Teachable Machine'] },
+    '7.6': { i: ['7.5', '7.4', '7.3', '7.2', '7.1'], d: [], r: ['EQU', 'FIS', 'LOG'], h: ['MakeCode', 'micro:bit'] },
+    '8.1': { i: ['7.3'], d: ['6.1'], r: ['LOG'], h: ['MakeCode', 'micro:bit'] },
+    '8.2': { i: ['8.1'], d: [], r: ['LOG'], h: ['MakeCode', 'micro:bit'] },
+    '8.3': { i: ['8.2'], d: [], r: ['LOG', 'DAT'], h: ['MakeCode', 'micro:bit'] },
+    '8.4': { i: [], d: [], r: ['MOD'], h: ['Phet'] },
+    '8.5': { i: ['7.5'], d: [], r: ['IA', 'EQU', 'LOG'], h: [] },
+    '8.6': { i: ['8.5', '8.4', '8.3', '8.2', '8.1'], d: [], r: ['ETI', 'EQU', 'FIS'], h: [] },
+    '9.1': { i: ['7.3'], d: ['6.3'], r: ['FIS', 'MOD'], h: ['MakeCode', 'micro:bit'] },
+    '9.2': { i: [], d: ['7.4'], r: ['DAT', 'EQU'], h: [] },
+    '9.3': { i: ['8.4'], d: [], r: ['MOD'], h: ['Phet'] },
+    '9.4': { i: [], d: ['7.1'], r: ['LOG'], h: ['Python'] },
+    '9.5': { i: ['9.4'], d: [], r: ['LOG'], h: ['Python'] },
+    '9.6': { i: ['9.5', '9.4', '9.3', '9.2', '9.1'], d: [], r: ['EQU', 'LOG'], h: [] },
+    '10.1': { i: ['7.4'], d: ['8.4'], r: ['DAT', 'MOD'], h: ['Excel'] },
+    '10.2': { i: ['9.4'], d: [], r: ['LOG'], h: ['Python'] },
+    '10.3': { i: ['10.1'], d: ['9.6'], r: ['ETI', 'DAT'], h: [] },
+    '10.4': { i: ['10.1'], d: [], r: ['DAT', 'LOG'], h: ['Phyphox'] },
+    '10.5': { i: ['9.4'], d: [], r: ['LOG'], h: ['Python'] },
+    '10.6': { i: ['10.5', '10.4', '10.3', '10.2', '10.1'], d: [], r: ['EQU', 'FIS', 'LOG'], h: ['MakeCode', 'micro:bit'] },
+    '11.1': { i: ['7.5'], d: ['6.5', '10.3'], r: ['IA', 'SEG', 'EQU'], h: [] },
+    '11.2': { i: ['10.1', '9.4'], d: [], r: ['DAT', 'EQU'], h: ['Excel'] },
+    '11.3': { i: ['8.3'], d: ['8.4'], r: ['LOG', 'FIS'], h: ['Python'] },
+    '11.4': { i: ['8.3'], d: ['6.3'], r: ['DAT', 'LOG', 'FIS'], h: ['MakeCode', 'micro:bit'] },
+    '11.5': { i: [], d: ['8.4'], r: ['MOD', 'DAT'], h: ['Phet'] },
+    '11.6': { i: ['11.5', '11.4', '11.3', '11.2', '11.1'], d: [], r: ['EQU'], h: ['MakeCode', 'micro:bit'] }
+  };
+  window.PROYECTO_PC.nodos.forEach(n => {
+    const g = GRAFO_EQUIPO[n.id];
+    if (!g) return;
+    n.rama = g.r[0];
+    n.ramasSecundarias = g.r.slice(1);
+    n.prerrequisitos = g.i;
+    n.deseables = g.d;
+    n.herramientas = g.h;
+  });
 })();

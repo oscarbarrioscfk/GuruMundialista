@@ -120,6 +120,7 @@ button { cursor: pointer; }
 .ley-guia { fill: var(--blanco); stroke: var(--morado); stroke-width: 2.5; }
 .ley-proyecto { fill: var(--ciruela); }
 .ley-secundaria { fill: var(--azul); }
+.ley-linea { fill: none; stroke: var(--morado); stroke-width: 2.4; }
 .rangos-demo, .rangos { display: inline-flex; gap: 3px; }
 .rangos-demo i, .rangos i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--morado); display: inline-block; }
 .rangos-demo i.lleno, .rangos i.lleno { background: var(--morado); }
@@ -202,6 +203,25 @@ button { cursor: pointer; }
 }
 .vinculo:hover { border-color: var(--azul); }
 .vinculo b { color: var(--ciruela); }
+.vinculo small { display: block; font-size: .7rem; font-weight: 600; color: #8C8D92; margin-top: 1px; }
+.vinculo.tipo-deseable { border-style: dashed; }
+.tipo-vinculo { margin: 8px 0 5px; font-size: .76rem; font-weight: 800; color: var(--texto-fuerte); display: flex; align-items: center; gap: 6px; }
+.tipo-vinculo i { width: 22px; height: 0; border-top: 2.5px solid var(--morado); display: inline-block; }
+.tipo-vinculo i.linea-deseable { border-top-style: dashed; }
+.tipo-vinculo i.linea-habilidad { border-top-style: dotted; }
+.tipo-vinculo i.linea-proyecto { border-top-color: var(--ciruela); border-top-style: dashed; }
+.etiqueta.herramienta { background: var(--banda); color: var(--texto-fuerte); border: 1px solid var(--linea); }
+
+.dialogo {
+  border: 0; border-radius: 14px; padding: 22px 24px; width: min(560px, calc(100vw - 32px)); max-height: 80vh;
+  box-shadow: 0 20px 60px rgba(79, 43, 99, .25); color: var(--texto); font-size: .9rem;
+}
+.dialogo::backdrop { background: rgba(79, 43, 99, .35); }
+.dialogo h2 { margin: 0 0 10px; color: var(--ciruela); font-weight: 900; font-size: 1.2rem; }
+.dialogo h4 { margin: 14px 0 4px; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--morado); }
+.dialogo p, .dialogo ul { margin: 0 0 6px; line-height: 1.45; }
+.dialogo ul { padding-left: 18px; }
+.dialogo .botonera { display: flex; justify-content: flex-end; margin-top: 14px; }
 .nota { font-size: .76rem; color: #8C8D92; margin-top: 4px; }
 
 .ruta {
