@@ -5,6 +5,14 @@
   const CLAVE = 'arbolHabilidades.v3';
   const CLAVE_V2 = 'arbolHabilidades.v2';
   const ID_EJEMPLO = 'ejemplo-pc';
+  // Proyectos de ejemplo incluidos en la herramienta (no se pueden eliminar, sí restablecer).
+  const EJEMPLOS = { 'ejemplo-pc': () => window.PROYECTO_PC, 'ejemplo-marco': () => window.PROYECTO_MARCO };
+  const esEjemplo = id => Object.prototype.hasOwnProperty.call(EJEMPLOS, id) && !!EJEMPLOS[id]();
+  // Solo lectura: «?lectura» o un enlace compartido «#ver=…». Nunca escribe en los proyectos guardados.
+  const PARAMS = new URLSearchParams(location.search);
+  const HASH = new URLSearchParams(location.hash.slice(1));
+  const LECTURA = PARAMS.has('lectura') || HASH.has('ver');
+  const CLAVE_LECTURA = 'arbolHabilidades.lectura';
   const $ = sel => document.querySelector(sel);
   const $$ = sel => [...document.querySelectorAll(sel)];
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -20,7 +28,7 @@
 
   // ── Persistencia (solo en este navegador, varios proyectos) ─────
   let almacen = { actual: ID_EJEMPLO, proyectos: {} };
-  const entradaEjemplo = () => ({ proyecto: copia(window.PROYECTO_PC), completados: [], rutasUsuario: [], fuente: 'equipo', actualizado: Date.now() });
+  const entradaEjemplo = (id = ID_EJEMPLO) => ({ proyecto: copia(EJEMPLOS[id]()), completados: [], rutasUsuario: [], fuente: 'equipo', actualizado: Date.now() });
   function leerAlmacen() {
     try {
       const datos = JSON.parse(localStorage.getItem(CLAVE) || 'null');
@@ -33,7 +41,9 @@
         if (v2 && !Modelo.validar(v2.proyecto).length) almacen.proyectos[ID_EJEMPLO] = { ...v2, actualizado: Date.now() };
       }
     } catch (e) { /* almacenamiento no disponible o dañado */ }
-    if (!almacen.proyectos[ID_EJEMPLO]) almacen.proyectos[ID_EJEMPLO] = entradaEjemplo();
+    Object.keys(EJEMPLOS).filter(esEjemplo).forEach(id => {
+      if (!almacen.proyectos[id]) almacen.proyectos[id] = { ...entradaEjemplo(id), actualizado: 0 };
+    });
     actualizarEjemplo(almacen.proyectos[ID_EJEMPLO].proyecto);
   }
   // El ejemplo guardado antes de existir las categorías las recibe sin perder cambios,
@@ -56,6 +66,15 @@
     p.ramas.sort((a, b) => (orden.indexOf(a.id) + 1 || 99) - (orden.indexOf(b.id) + 1 || 99));
   }
   function guardar() {
+    if (LECTURA) {
+      // En lectura solo se recuerdan la vista y el progreso del modo estudiante.
+      try {
+        const prefs = JSON.parse(localStorage.getItem(CLAVE_LECTURA) || '{}');
+        prefs[estado.idProyecto] = { capas: estado.capas, completados: [...estado.completados] };
+        localStorage.setItem(CLAVE_LECTURA, JSON.stringify(prefs));
+      } catch (e) { /* sin almacenamiento */ }
+      return;
+    }
     almacen.actual = estado.idProyecto;
     almacen.proyectos[estado.idProyecto] = {
       proyecto: estado.proyecto, completados: [...estado.completados], rutasUsuario: estado.rutasUsuario,
@@ -79,6 +98,66 @@
     guardar();
     reconstruir({ encuadrar });
   }
+  // ── Solo lectura ────────────────────────────────────────────────
+  async function iniciarLectura() {
+    document.body.classList.add('modo-lectura');
+    $('#insignia-lectura').hidden = false;
+    $('#pie-guardado').textContent = 'Vista de solo lectura · tus cambios de vista y tu progreso quedan solo en este navegador';
+    let datos = null, error = null;
+    try {
+      if (HASH.get('ver')) datos = await Compartir.decodificar(HASH.get('ver'));
+      else if (EJEMPLOS[`ejemplo-${PARAMS.get('ejemplo')}`]) datos = { proyecto: copia(EJEMPLOS[`ejemplo-${PARAMS.get('ejemplo')}`]()) };
+      else if (PARAMS.get('url')) {
+        const r = await fetch(PARAMS.get('url'));
+        if (!r.ok) throw new Error(`No se pudo descargar el proyecto (${r.status}).`);
+        const j = await r.json();
+        datos = j.proyecto ? j : { proyecto: j };
+        const errores = Modelo.validar(datos.proyecto);
+        if (errores.length) throw new Error('El archivo no contiene un proyecto válido: ' + errores.join(' '));
+      }
+    } catch (e) { error = e.message || String(e); }
+    if (!datos) datos = { proyecto: copia(window.PROYECTO_PC) };
+    if (!datos.proyecto.categorias && datos.proyecto.titulo === window.PROYECTO_PC.titulo) actualizarEjemplo(datos.proyecto);
+    const id = `lectura:${Modelo.normalizar(datos.proyecto.titulo || 'proyecto')}`;
+    let prefs = {};
+    try { prefs = JSON.parse(localStorage.getItem(CLAVE_LECTURA) || '{}')[id] || {}; } catch (e) { /* sin almacenamiento */ }
+    almacen.proyectos[id] = {
+      proyecto: datos.proyecto, rutasUsuario: datos.rutas || [], fuente: datos.fuente,
+      capas: prefs.capas || datos.capas, completados: prefs.completados || []
+    };
+    abrirProyecto(id);
+    if (datos.vista === 'poster') $('[data-vista="poster"]').click();
+    if (error) mostrarDialogo('No se pudo abrir el enlace', `<p>${esc(error)}</p><p>Se muestra el proyecto de ejemplo.</p>`);
+  }
+
+  /** Copia el proyecto que se está viendo a «Mis proyectos» y abre el editor. */
+  function copiaEditable() {
+    const e = almacen.proyectos[estado.idProyecto];
+    let guardado = { actual: ID_EJEMPLO, proyectos: {} };
+    try { guardado = JSON.parse(localStorage.getItem(CLAVE) || 'null') || guardado; } catch (err) { /* vacío */ }
+    const id = `p-${Date.now().toString(36)}`;
+    guardado.proyectos[id] = { proyecto: copia(e.proyecto), completados: [], rutasUsuario: copia(e.rutasUsuario || []), fuente: estado.fuente, capas: estado.capas, actualizado: Date.now() };
+    guardado.actual = id;
+    try { localStorage.setItem(CLAVE, JSON.stringify(guardado)); } catch (err) { aviso('Este navegador no permite guardar proyectos.', 'error'); return; }
+    location.href = location.href.split(/[?#]/)[0];
+  }
+
+  async function dialogoCompartir() {
+    const codigo = await Compartir.codificar({
+      proyecto: estado.proyecto, rutas: estado.rutasUsuario, capas: estado.capas, fuente: estado.fuente, vista: vista.vista
+    });
+    const url = Compartir.enlace(codigo);
+    const local = location.protocol === 'file:';
+    mostrarDialogo('Compartir en solo lectura', `
+      <p>Quien abra este enlace verá <b>«${esc(estado.proyecto.titulo)}»</b> tal como está ahora, con la vista actual (nivel, capas y ${vista.vista === 'poster' ? 'vista póster' : 'árbol radial'}). Podrá explorarlo, usar el modo estudiante y descargar imágenes, pero no editarlo.</p>
+      <textarea class="enlace-compartir" id="enlace-compartir" readonly rows="4">${esc(url)}</textarea>
+      <div class="botonera" style="justify-content:flex-start;gap:8px;margin-top:8px">
+        <button type="button" class="boton" data-copiar-enlace>Copiar enlace</button>
+        <a class="boton boton-secundario" href="${esc(url)}" target="_blank" rel="noopener">Abrir vista previa</a>
+      </div>
+      <p class="nota">El proyecto viaja dentro del enlace (${(url.length / 1000).toFixed(1)} mil caracteres), sin servidor ni cuentas. Si cambias el diseño, comparte un enlace nuevo.${url.length > 30000 ? ' <b>Es un enlace largo:</b> algunos servicios de mensajería podrían cortarlo; en ese caso, publica el .json y usa «?lectura&amp;url=».' : ''}${local ? ' <b>Ojo:</b> estás usando la herramienta desde un archivo local; para que otros abran el enlace, compártelo desde la versión publicada en línea.' : ''}</p>`);
+  }
+
   function crearProyecto(proyecto, extra = {}) {
     const id = `p-${Date.now().toString(36)}`;
     almacen.proyectos[id] = { proyecto, completados: [], rutasUsuario: [], fuente: 'equipo', ...extra, actualizado: Date.now() };
@@ -211,6 +290,9 @@
     renderDiagnostico();
     if (estado.edicion && estructura) Disenio.estructura($('#estructura'));
     $('#lienzo-vacio').hidden = m.nodos.length > 0;
+    $('#nombre-modo').textContent = m.proyecto.vocabulario?.modo || 'Modo estudiante';
+    $('#indicador-zoom [data-nivel="medio"]').textContent = Editor.plural(m.proyecto.vocabulario?.nodo || 'Guía');
+    $('#indicador-zoom [data-nivel="cerca"]').textContent = nombreHabilidades();
     $('#btn-nueva-guia').textContent = `+ Nueva ${(m.proyecto.vocabulario?.nodo || 'guía').toLowerCase()}`;
     const sel = m.porId.has(estado.seleccion) ? estado.seleccion : null;
     if (detalle) seleccionar(sel, { pestana: false });
@@ -273,6 +355,7 @@
       return;
     }
     if (!id) {
+      const voc = m.proyecto.vocabulario || {}, nodo = (voc.nodo || 'guía').toLowerCase(), nodos = Editor.plural(nodo);
       cont.innerHTML = `
         <div class="vacio">
           <svg viewBox="0 0 90 90" aria-hidden="true">
@@ -283,13 +366,13 @@
             }).join('')}
           </svg>
           <h3>Explora el árbol</h3>
-          <p>Cada rama es un eje del pensamiento computacional y cada anillo, un ${esc(m.proyecto.vocabulario?.nivel?.toLowerCase() || 'nivel')}.</p>
+          <p>Cada rama es ${esc(voc.rama || 'un eje del pensamiento computacional')} y cada anillo, un ${esc(voc.nivel?.toLowerCase() || 'nivel')}.</p>
           <ul>
-            <li><b>Rueda del ratón</b> o pellizco: acercar y alejar. Al acercarte aparecen las guías y luego sus habilidades.</li>
-            <li><b>Clic en una guía</b>: ves lo que requiere (azul) y lo que desbloquea (morado).</li>
+            <li><b>Rueda del ratón</b> o pellizco: acercar y alejar. Al acercarte aparecen las ${esc(nodos)} y luego sus ${esc(nombreHabilidades().toLowerCase())}.</li>
+            <li><b>Clic en una ${esc(nodo)}</b>: ves lo que requiere (azul) y lo que desbloquea (morado).</li>
             <li><b>Clic en una rama</b>: la enfocas y atenúas el resto.</li>
-            <li><b>Trayectorias</b>: rutas de especialización listas o creadas por ti.</li>
-            <li><b>Modo estudiante</b>: marca guías completadas y mira qué se desbloquea.</li>
+            <li><b>Rutas</b>: recorridos listos o creados por ti.</li>
+            <li><b>${esc(voc.modo || 'Modo estudiante')}</b>: marca ${esc(nodos)} completadas y mira qué se desbloquea.</li>
           </ul>
         </div>`;
       return;
@@ -297,6 +380,8 @@
     const n = m.porId.get(id);
     const rama = m.ramaPorId.get(n.rama);
     const nivel = m.proyecto.niveles[n._nivel];
+    const siguienteNivel = m.proyecto.niveles[n._nivel + 1];
+    const usaRangos = m.nodos.some(x => x._rangoMax !== null);
     const requiere = m.entrantes.get(id), desbloquea = m.salientes.get(id);
     const vinculo = (a, lado) => {
       const otro = m.porId.get(a[lado]);
@@ -329,11 +414,13 @@
         </div>
         ${est ? `<p class="nota" style="font-size:.82rem;color:${est === 'bloqueado' ? '#C2417A' : '#3C8D5A'}">
           ${est === 'completado' ? '✔ Completada. Clic de nuevo para desmarcar.' : est === 'disponible' ? '★ Disponible: haz clic en el nodo para marcarla como completada.' : `🔒 Bloqueada: completa antes ${esc(faltan.join(', '))}.`}${recomendadas.length ? `<br>Recomendado antes: ${esc(recomendadas.join(', '))}.` : ''}</p>` : ''}
-        ${n.habilidades.length ? `<h4>Habilidades</h4>
+        ${n.descripcion ? `<p class="ficha-descripcion">${esc(n.descripcion)}</p>` : ''}
+        ${n.habilidades.length ? `<h4>${esc(nombreHabilidades())}</h4>
           <ul class="habilidades">${n.habilidades.map(h => `
-            <li><span>${esc(h.nombre)}</span>${h.rango === null || h.rango === undefined ? '<span class="sin-rango">sin nivel</span>'
+            <li><span>${esc(h.nombre)}</span>${h.rango === null || h.rango === undefined ? (usaRangos ? '<span class="sin-rango">sin nivel</span>' : '')
               : `<span class="rangos" title="${Modelo.RANGOS[h.rango]}">${[0, 1, 2].map(k => `<i class="${k <= h.rango ? 'lleno' : ''}"></i>`).join('')}</span>`}</li>`).join('')}
           </ul>` : '<p class="nota">Integra lo trabajado en las guías del nivel.</p>'}
+        ${n.avance ? `<div class="ficha-avance"><h4>Para avanzar${siguienteNivel ? ` a ${esc(siguienteNivel.nombre)}` : ''}</h4><p>${esc(n.avance)}</p></div>` : ''}
         <h4>Requiere (${requiere.length})</h4>
         ${grupos(requiere, 'origen', 'Es un punto de entrada: no tiene prerrequisitos.')}
         <h4>Desbloquea (${desbloquea.length})</h4>
@@ -343,6 +430,7 @@
       </article>`;
   }
 
+  const nombreHabilidades = () => (m.proyecto.vocabulario?.habilidad ? Editor.plural(m.proyecto.vocabulario.habilidad) : 'Habilidades');
   const TIPO_VINCULO = { indispensable: 'Indispensables', deseable: 'Deseables', habilidad: 'Por habilidad compartida', proyecto: 'Proyecto integrador' };
   const NOTA_FUENTE = {
     equipo: 'Conexiones del grafo de dependencias del equipo pedagógico.',
@@ -432,10 +520,10 @@
             <button type="button" class="boton boton-secundario" data-accion-ruta="cancelar">Cancelar</button>
           </div>
         </div>`
-        : `<button type="button" class="boton" data-accion-ruta="nueva" style="margin-bottom:12px">+ Nueva trayectoria</button>`}
+        : LECTURA ? '' : `<button type="button" class="boton" data-accion-ruta="nueva" style="margin-bottom:12px">+ Nueva trayectoria</button>`}
       ${todasLasRutas().map(r => `
         <div class="ruta ${estado.rutaActiva === r.id ? 'activo' : ''}" data-ruta="${esc(r.id)}" role="button" tabindex="0">
-          <h5><span>${esc(r.nombre)}</span>${r.propia ? `<button type="button" class="enlace borrar" data-borrar-ruta="${esc(r.id)}">Borrar</button>` : ''}</h5>
+          <h5><span>${esc(r.nombre)}</span>${r.propia && !LECTURA ? `<button type="button" class="enlace borrar" data-borrar-ruta="${esc(r.id)}">Borrar</button>` : ''}</h5>
           ${r.descripcion ? `<p>${esc(r.descripcion)}</p>` : ''}
           <div class="pasos">${pasos(r.nodos)}</div>
         </div>`).join('')}
@@ -455,12 +543,13 @@
     const { alertas, matriz } = Modelo.diagnosticar(m, { matriz: estado.matriz });
     const guias = m.nodos.filter(n => n.tipo !== 'proyecto');
     const habilidades = new Set(guias.flatMap(n => n.habilidades.map(h => h._clave)));
+    const nodosMay = esc(Editor.plural(m.proyecto.vocabulario?.nodo || 'Guía'));
     const maximo = Math.max(1, ...matriz.flat());
     $('#num-alertas').textContent = alertas.filter(a => a.gravedad !== 'baja').length || '';
     $('#diagnostico').innerHTML = `
       <div class="resumen">
         <div><b>${guias.length}</b><span>${esc(Editor.plural((m.proyecto.vocabulario?.nodo || 'nodo').toLowerCase()))}</span></div>
-        <div><b>${habilidades.size}</b><span>habilidades</span></div>
+        <div><b>${habilidades.size}</b><span>${esc(nombreHabilidades().toLowerCase())}</span></div>
         <div><b>${m.aristas.filter(a => a.tipo !== 'proyecto').length}</b><span>conexiones</span></div>
       </div>
       <h4 class="titulo-panel" style="margin-top:6px">Equilibrio por rama y ${esc((m.proyecto.vocabulario?.nivel || 'nivel').toLowerCase())}</h4>
@@ -476,8 +565,8 @@
         }).join('')}</tr>`).join('')}</tbody>
       </table>
       <p class="nota" style="margin-bottom:14px">${estado.matriz === 'todas'
-        ? 'Guías asociadas a cada rama, como eje principal o secundario. Es el mismo conteo del mapa de calor «Currículo en Pensamiento Computacional» del equipo.'
-        : 'Guías cuyo eje principal es cada rama.'}</p>
+        ? `${nodosMay} asociadas a cada rama, como eje principal o secundario.${m.proyecto.titulo === window.PROYECTO_PC?.titulo ? ' Es el mismo conteo del mapa de calor «Currículo en Pensamiento Computacional» del equipo.' : ''}`
+        : `${nodosMay} cuyo eje principal es cada rama.`}</p>
       <h4 class="titulo-panel">Alertas de diseño (${alertas.length})</h4>
       <ul class="alertas">${alertas.map(a => `
         <li><button type="button" class="alerta ${a.gravedad}" ${a.nodo ? `data-ir="${esc(a.nodo)}"` : `data-rama="${esc(a.rama)}"`}>
@@ -502,7 +591,7 @@
     const disponibles = [...estados.values()].filter(e => e === 'disponible').length;
     const habs = new Set(m.nodos.filter(n => estado.completados.has(n.id)).flatMap(n => n.habilidades.map(h => h._clave)));
     $('#progreso-texto').textContent = `${hechos} de ${total} ${Editor.plural((m.proyecto.vocabulario?.nodo || 'nodo').toLowerCase())}`;
-    $('#progreso-detalle').textContent = `${habs.size} habilidades · ${disponibles} disponibles`;
+    $('#progreso-detalle').textContent = `${habs.size} ${nombreHabilidades().toLowerCase()} · ${disponibles} disponibles`;
     $("#progreso-barra").style.width = `${total ? (100 * hechos / total).toFixed(1) : 0}%`;
     if (estado.seleccion) renderDetalle();
   }
@@ -595,13 +684,14 @@
   }
 
   function dialogoProyectos() {
-    const filas = Object.entries(almacen.proyectos).sort((a, b) => (a[0] === ID_EJEMPLO ? -1 : b[0] === ID_EJEMPLO ? 1 : b[1].actualizado - a[1].actualizado));
+    const orden = Object.keys(EJEMPLOS);
+    const filas = Object.entries(almacen.proyectos).sort((a, b) => (orden.indexOf(a[0]) + 1 || 99) - (orden.indexOf(b[0]) + 1 || 99) || b[1].actualizado - a[1].actualizado);
     mostrarDialogo('Mis proyectos', `
       <ul class="lista-proyectos">${filas.map(([id, e]) => `
         <li class="${id === estado.idProyecto ? 'actual' : ''}">
-          <div><b>${esc(e.proyecto.titulo)}</b><span>${e.proyecto.nodos.length} ${esc(Editor.plural((e.proyecto.vocabulario?.nodo || 'nodo').toLowerCase()))} · ${e.proyecto.ramas.length} ramas${id === ID_EJEMPLO ? ' · ejemplo' : ''} · ${new Date(e.actualizado || Date.now()).toLocaleDateString('es')}</span></div>
+          <div><b>${esc(e.proyecto.titulo)}</b><span>${e.proyecto.nodos.length} ${esc(Editor.plural((e.proyecto.vocabulario?.nodo || 'nodo').toLowerCase()))} · ${e.proyecto.ramas.length} ramas${esEjemplo(id) ? ' · ejemplo' : ` · ${new Date(e.actualizado || Date.now()).toLocaleDateString('es')}`}</span></div>
           ${id === estado.idProyecto ? '<em>Abierto</em>' : `<button type="button" class="boton boton-secundario" data-abrir-proyecto="${esc(id)}">Abrir</button>`}
-          ${id === ID_EJEMPLO ? '' : `<button type="button" class="enlace borrar" data-borrar-proyecto="${esc(id)}">Eliminar</button>`}
+          ${esEjemplo(id) ? '' : `<button type="button" class="enlace borrar" data-borrar-proyecto="${esc(id)}">Eliminar</button>`}
         </li>`).join('')}
       </ul>
       <div class="botonera"><button type="button" class="boton" data-accion="nuevo">+ Nuevo proyecto</button></div>`);
@@ -658,15 +748,20 @@
     else if (accion === 'exportar-hoja') descargar(`${nombreBase()}.xlsx`, Hoja.xlsx(Grafo.libro(estado.proyecto)));
     else if (accion === 'plantilla') descargar('plantilla-arbol-de-habilidades.xlsx', Hoja.xlsx(Grafo.plantilla()));
     else if (accion === 'proyectos') dialogoProyectos();
+    else if (accion === 'compartir') dialogoCompartir();
+    else if (accion === 'copia-editable') copiaEditable();
     else if (accion === 'nuevo') { cerrarDialogo(); dialogoNuevo(); }
     else if (accion === 'duplicar') {
       const p = copia(estado.proyecto);
       p.titulo = `${p.titulo} (copia)`;
       crearProyecto(p, { rutasUsuario: copia(estado.rutasUsuario), fuente: estado.fuente });
       aviso(`Ahora trabajas en «${p.titulo}». El original queda intacto en Mis proyectos.`);
-    } else if (accion === 'restablecer' && confirm('¿Restablecer el proyecto de ejemplo de Pensamiento Computacional? Se perderán sus cambios, el progreso y sus trayectorias propias. Tus otros proyectos no se tocan.')) {
-      almacen.proyectos[ID_EJEMPLO] = entradaEjemplo();
-      abrirProyecto(ID_EJEMPLO);
+    } else if (accion === 'restablecer') {
+      const id = esEjemplo(estado.idProyecto) ? estado.idProyecto : ID_EJEMPLO;
+      const titulo = EJEMPLOS[id]().titulo;
+      if (!confirm(`¿Restablecer el proyecto de ejemplo «${titulo}»? Se perderán sus cambios, el progreso y sus trayectorias propias. Tus otros proyectos no se tocan.`)) return;
+      almacen.proyectos[id] = entradaEjemplo(id);
+      abrirProyecto(id);
     }
   }
 
@@ -767,6 +862,13 @@
     $('#archivo-hoja').addEventListener('change', e => { if (e.target.files[0]) importarHoja(e.target.files[0]); e.target.value = ''; });
     $('#dialogo-cerrar').addEventListener('click', cerrarDialogo);
     $('#dialogo-cuerpo').addEventListener('click', e => {
+      if (e.target.closest('[data-copiar-enlace]')) {
+        const t = $('#enlace-compartir');
+        t.select();
+        (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).then(
+          () => aviso('Enlace copiado.'), () => { document.execCommand && document.execCommand('copy'); aviso('Enlace seleccionado: cópialo con Ctrl+C.'); });
+        return;
+      }
       const abrir = e.target.closest('[data-abrir-proyecto]'), borrar = e.target.closest('[data-borrar-proyecto]'), acc = e.target.closest('[data-accion]');
       if (abrir) { cerrarDialogo(); abrirProyecto(abrir.dataset.abrirProyecto); aviso(`Proyecto «${estado.proyecto.titulo}» abierto.`); }
       else if (borrar) {
@@ -882,5 +984,7 @@
     get proyecto() { return estado.proyecto; },
     verFicha: () => { estado.fichaLectura = true; renderDetalle(); }
   });
-  abrirProyecto(almacen.actual);
+  // «?ejemplo=marco» abre directamente uno de los proyectos de ejemplo.
+  const ejemploPedido = `ejemplo-${PARAMS.get('ejemplo')}`;
+  if (LECTURA) iniciarLectura(); else abrirProyecto(almacen.proyectos[ejemploPedido] ? ejemploPedido : almacen.actual);
 })();

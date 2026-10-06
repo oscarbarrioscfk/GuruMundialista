@@ -211,6 +211,11 @@ button { cursor: pointer; }
 .etiqueta { font-size: .74rem; font-weight: 800; padding: 2px 9px; border-radius: 999px; color: var(--blanco); }
 .etiqueta.secundaria { background: var(--blanco) !important; border: 1.5px dashed currentColor; }
 .ficha h4 { margin: 16px 0 6px; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ciruela); font-weight: 900; }
+.ficha-descripcion { margin: 12px 0 0; font-size: .86rem; line-height: 1.5; color: var(--texto-fuerte); }
+.ficha-avance { margin-top: 14px; padding: 8px 12px 10px; border-left: 4px solid var(--azul); background: var(--banda); border-radius: 0 var(--radio) var(--radio) 0; }
+.ficha-avance h4 { margin-top: 2px; color: var(--azul-osc); }
+.ficha-avance p { margin: 0; font-size: .86rem; line-height: 1.45; color: var(--texto-fuerte); }
+.formulario textarea { width: 100%; font: inherit; font-size: .85rem; resize: vertical; }
 .habilidades { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .habilidades li {
   display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
@@ -284,6 +289,22 @@ button { cursor: pointer; }
   padding: 7px 24px; font-size: .74rem; border-top: 1px solid var(--linea); background: var(--banda);
 }
 
+
+/* ── Solo lectura ──────────────────────────────────────────────── */
+[data-solo-lectura] { display: none !important; }
+.modo-lectura [data-solo-lectura] { display: block !important; }
+.modo-lectura hr[data-solo-lectura] { display: block !important; }
+.modo-lectura [data-solo-edicion], .modo-lectura #btn-editar { display: none !important; }
+.titulos { position: relative; }
+.insignia-lectura {
+  margin-top: 6px; background: var(--blanco); color: var(--ciruela); border: 1.5px solid var(--ciruela);
+  border-radius: 999px; padding: 2px 10px; font-size: .74rem; font-weight: 900;
+}
+.enlace-compartir {
+  width: 100%; font: 600 .76rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--texto-fuerte);
+  border: 1.5px solid var(--linea); border-radius: 8px; padding: 8px; resize: vertical; word-break: break-all; background: var(--banda);
+}
+.dialogo a.boton { text-decoration: none; }
 
 /* ── Modo diseño ───────────────────────────────────────────────── */
 .boton:disabled { opacity: .45; cursor: not-allowed; }

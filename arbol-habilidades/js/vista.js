@@ -285,6 +285,10 @@ const Vista = (() => {
     const capaNodos = mundo.append('g').attr('class', 'nodos');
 
     let m = null, vista = 'radial', geoR = null, geoP = null, nivelZoom = null;
+    const contarNodos = k => {
+      const nombre = (m.proyecto.vocabulario?.nodo || 'guía').toLowerCase();
+      return `${k} ${k === 1 ? nombre : Editor.plural(nombre)}`;
+    };
     let capas = { ...CAPAS_COMPLETAS };
     const perfilesVisibles = () => (capas.perfiles ? geoR.cats : []);
     /** Capas visibles. Las que cambian la geometría (categorías, perfiles) requieren volver a dibujar. */
@@ -416,7 +420,7 @@ const Vista = (() => {
         const cuantos = m.nodos.filter(n => n._rama === i && n.tipo !== 'proyecto').length;
         g.append('text').attr('class', 'rotulo-rama-conteo').attr('text-anchor', anchor).attr('x', tx)
           .attr('y', ty + (lineas.length - 1) * 40 + 32).attr('fill', r.color)
-          .text(`${cuantos} ${cuantos === 1 ? 'guía' : 'guías'}`);
+          .text(contarNodos(cuantos));
       });
 
       // Perfiles: la persona hacia la que crece cada categoría
@@ -438,7 +442,7 @@ const Vista = (() => {
         const tn = g.append('text').attr('class', 'nombre-perfil').attr('fill', c.cat.color).attr('y', base);
         lineas.forEach((l, k) => tn.append('tspan').attr('x', 0).attr('dy', k ? 50 : 0).text(l));
         g.append('text').attr('class', 'dato-perfil').attr('fill', C.texto)
-          .attr('y', base + (lineas.length - 1) * 50 + 38).text(`${nGuias} ${nGuias === 1 ? 'guía' : 'guías'} · ${c.idx.length} ramas`);
+          .attr('y', base + (lineas.length - 1) * 50 + 38).text(c.idx.length === 1 ? contarNodos(nGuias) : `${contarNodos(nGuias)} · ${c.idx.length} ramas`);
         g.append('text').attr('class', 'etapa').attr('fill', c.cat.color)
           .attr('y', arriba ? R_PERFIL + 70 : -R_PERFIL - 48);
       });
@@ -482,8 +486,11 @@ const Vista = (() => {
         capaPoster.append('rect').attr('class', 'borde-col').attr('stroke', color)
           .attr('x', x + 4).attr('y', 38).attr('width', COL_W - 14).attr('height', geoP.alto - 60).attr('rx', 6);
         const g = capaPoster.append('g').attr('class', 'encabezado-col').attr('transform', `translate(${x + COL_W / 2 - 3},38)`);
-        g.append('rect').attr('x', -62).attr('y', -18).attr('width', 124).attr('height', 36).attr('fill', color);
-        g.append('text').attr('font-size', 17).text(nv.nombre);
+        // La píldora crece con el nombre del nivel; si no cabe, la letra se reduce.
+        const maxW = COL_W - 18, fs = Math.min(17, (maxW - 24) / (nv.nombre.length * 0.56));
+        const w = Math.min(maxW, Math.max(124, nv.nombre.length * fs * 0.56 + 24));
+        g.append('rect').attr('x', -w / 2).attr('y', -18).attr('width', w).attr('height', 36).attr('fill', color);
+        g.append('text').attr('font-size', fs.toFixed(1)).text(nv.nombre);
       });
     }
 
@@ -777,8 +784,10 @@ const Vista = (() => {
         let rx = geoR.rRotulo + 380, ry = geoR.rRotulo + 190;
         perfilesVisibles().forEach(c => {
           const pp = polar(c.mid, c.r);
+          // El nombre del perfil ocupa más alto cuanto más líneas tiene.
+          const lineas = envolver(c.cat.perfil || c.cat.nombre, 15).length;
           rx = Math.max(rx, Math.abs(pp.x) + 300);
-          ry = Math.max(ry, Math.abs(pp.y) + R_PERFIL + 170);
+          ry = Math.max(ry, Math.abs(pp.y) + R_PERFIL + 130 + 50 * lineas);
         });
         return [[-rx, -ry], [rx, ry]];
       }

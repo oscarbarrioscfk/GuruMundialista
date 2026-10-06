@@ -11,7 +11,11 @@ Viene cargada con la progresión de las guías de Pensamiento Computacional (9 r
 - **Anexo 1. Grafo guías** del equipo pedagógico → eje principal y secundarios, herramienta
   y prerrequisitos **indispensables** y **deseables** de cada guía (77 + 20 dependencias).
 
+Trae también un segundo ejemplo, el **árbol de habilidades institucionales** del
+*Marco de Calidad para la enseñanza del pensamiento computacional* (ver más abajo).
+
 🌐 **En línea:** <https://oscarbarrioscfk.github.io/GuruMundialista/arbol-habilidades/>
+· Marco de Calidad: <https://oscarbarrioscfk.github.io/GuruMundialista/arbol-habilidades/?ejemplo=marco>
 
 > Flujo de uso y modelo de datos: [`docs/FLUJO_DE_USO.md`](docs/FLUJO_DE_USO.md)
 
@@ -58,6 +62,60 @@ instalación ni conexión a internet. Se publica con GitHub Pages desde la rama 
 Todo se guarda **solo en el navegador** de quien lo usa. Para compartir un diseño, expórtalo
 en `.json` o en hoja de cálculo.
 
+## 👁 Compartir en solo lectura (para docentes)
+
+- **Archivo → 🔗 Compartir enlace de solo lectura** genera un enlace con el proyecto **dentro del propio
+  enlace** (comprimido, unos 7 mil caracteres para el ejemplo completo) y con la vista elegida:
+  nivel, capas y árbol radial o póster. No necesita servidor ni cuentas.
+- Quien lo abre ve el árbol sin herramientas de edición. Puede explorar (zoom, niveles, filtros,
+  rutas, detalle), usar el **modo estudiante** y descargar imágenes. Su progreso queda en su navegador
+  y nunca toca los proyectos de quien diseñó.
+- **✎ Abrir una copia editable** guarda una copia en *Mis proyectos* para modificarla.
+- El ejemplo de Pensamiento Computacional en solo lectura:
+  <https://oscarbarrioscfk.github.io/GuruMundialista/arbol-habilidades/?lectura>
+- Para proyectos muy grandes, publica el `.json` (por ejemplo en este repositorio) y comparte
+  `…/arbol-habilidades/?lectura&url=<dirección del .json>`.
+
+Si se cambia el diseño, hay que compartir un enlace nuevo: el enlace guarda el proyecto tal como estaba
+al generarlo.
+
+## 🏫 Árbol de habilidades institucionales (Marco de Calidad)
+
+Segundo proyecto de ejemplo (**Archivo → Mis proyectos**, o el enlace `?ejemplo=marco`;
+en solo lectura `?lectura&ejemplo=marco`). Muestra cómo una institución educativa avanza
+en el *Marco de Calidad para la enseñanza del pensamiento computacional* (MinTIC · British
+Council · Universidad del Norte, julio 2025), leído junto con los criterios del Monitoreo y
+Evaluación de Colombia Programa 2024-2026.
+
+| Elemento del árbol | En el marco |
+|---|---|
+| Anillos (niveles) | Los 8 niveles: **1A–1B** Emergente · **2A–2B** En progreso inicial · **3A–3B** En consolidación · **4–5** Consolidado |
+| Ramas | Las 8 dimensiones; cada una es su propia categoría |
+| Etapas (nodos) | Una por dimensión y nivel; el código es *nivel.dimensión* (`3B.2` = nivel 3B de Plan de área) |
+| Descripción de la etapa | El texto del marco para ese nivel, tal cual |
+| Criterios | Lo que se observa y mide en ese nivel (criterios de clasificación de M&E). Un mismo criterio en varios niveles forma su cadena de mejora (fuente **Habilidades**) |
+| Para avanzar | Qué tiene que cambiar para pasar al nivel siguiente |
+| Conexiones | Indispensable: el nivel anterior de la misma dimensión. Deseable: apoyos entre dimensiones (p. ej. *3B.4 Formación con visión de largo plazo* → *4.1 Reducción del impacto de la rotación*) |
+| Perfiles | Cómo luce el nivel 5 de cada dimensión |
+| Autoevaluación | El modo de progreso: la institución marca los niveles que ya alcanzó y ve qué sigue |
+| Rutas | De la visión al aula · Cierre de brechas · Sostenibilidad ante la rotación · Hacia la educación terciaria · Proyección regional |
+
+Perfiles finales:
+
+1. **Liderazgo y visión** → Directivos docentes activos en el fomento del pensamiento computacional
+2. **Plan de área** → Docentes de todas las áreas que tejen el PC de transición a 11°
+3. **Enseñanza, aprendizaje y evaluación** → Docentes que enseñan, evalúan y comparten el PC con maestría
+4. **Desarrollo profesional** → Pares expertos(as) que forman y acompañan a docentes de la región
+5. **Equidad, diversidad e inclusión** → Estudiantes de todas las poblaciones que se sienten capaces en PC
+6. **Proyección en educación terciaria** → Jóvenes que eligen con información su futuro en STEM
+7. **Impacto en los resultados** → Estudiantes que aman el PC y lo aplican en todas las áreas
+8. **Equidad de género** → Niñas y adolescentes empoderadas en STEM
+
+Los criterios de *Liderazgo* y *Plan de área* son los de los mapas de calor de M&E; los de
+*Enseñanza* y *Equidad de género* incluyen las prácticas observadas en aula; los de las demás
+dimensiones se derivan del texto del marco y de los instrumentos (TPACK, autoeficacia,
+mentoría, redes). Están en `js/datos-marco.js` para ajustarlos con el equipo de M&E.
+
 ## 🧭 Crear un diseño propio en 5 pasos
 
 1. *Archivo → Nuevo proyecto*: elige libro o curso de FP y escribe niveles y ramas (uno por línea).
@@ -78,6 +136,9 @@ por sus columnas (aunque cambie el orden o falten algunas), y un mismo libro pue
 | Guía | Guía indispensable | Guía deseable | Subcategoría | Subcategoría 2 | Subcategoría 3 | Herramienta computacional |
 |---|---|---|---|---|---|---|
 | 7.1 | 6.2, 6.4 | | Lógica, Programación y Depuración | | | Scratch |
+
+Al final pueden ir dos columnas opcionales, **Descripción** y **Para avanzar**, con el texto largo
+de cada nodo (las usa el ejemplo del Marco de Calidad).
 
 **Habilidades** (una fila por habilidad):
 
@@ -122,7 +183,8 @@ En esa vista, cada *Evaluación y proyectos* recibe todas las guías de su grado
 {
   "titulo": "Pensamiento Computacional",
   "tipo": "libro",                       // "libro" o "curso" (FP)
-  "vocabulario": { "nivel": "Grado", "nodo": "Guía", "raiz": "Pensamiento computacional" },
+  "vocabulario": { "nivel": "Grado", "nodo": "Guía", "raiz": "Pensamiento computacional",
+                   "habilidad": "Habilidad", "modo": "Modo estudiante" },   // los dos últimos, opcionales
   "categorias": [{ "id": "CON", "nombre": "Conceptos y habilidades en computación", "perfil": "Programador(a)",
                    "icono": "programador", "color": "#3F6FAE", "tinte": "#DCE5F4" }],
   "niveles": [{ "id": "T", "nombre": "Transición", "corto": "T" }],
@@ -131,6 +193,7 @@ En esa vista, cada *Evaluación y proyectos* recibe todas las guías de su grado
     "id": "6.3", "codigo": "6.3", "titulo": "Invernaderos",
     "nivel": "6", "rama": "DAT", "ramasSecundarias": ["FIS"],
     "tipo": "guia",                       // "guia" o "proyecto"
+    "descripcion": "…", "avance": "…",    // opcionales: texto largo y «para avanzar»
     "habilidades": [{ "nombre": "Variables en micro:bit", "rango": 0, "clave": "variables" }],
     "herramientas": ["MakeCode", "micro:bit"],
     "prerrequisitos": ["6.1"],            // indispensables (ids de nodos)
@@ -141,8 +204,10 @@ En esa vista, cada *Evaluación y proyectos* recibe todas las guías de su grado
 ```
 
 Íconos de rama: `algoritmos`, `programacion`, `datos`, `fisica`, `modelacion`, `ia`,
-`seguridad`, `equidad`, `etica`, `generico`. Avatares de perfil: `programador`, `innovador`,
-`ciudadano`, `generico`.
+`seguridad`, `equidad`, `etica`, `liderazgo`, `plan`, `ensenanza`, `desarrollo`, `inclusion`,
+`terciaria`, `impacto`, `genero`, `generico`. Avatares de perfil: `programador`, `innovador`,
+`ciudadano`, `directivo`, `plan`, `docente`, `mentor`, `diversidad`, `joven`, `estudiante`,
+`nina`, `generico`.
 
 ## 🧱 Estructura
 
@@ -151,11 +216,13 @@ En esa vista, cada *Evaluación y proyectos* recibe todas las guías de su grado
 | `index.html` | Página e íconos de las ramas |
 | `css/estilos.css` | Look & feel BC (paleta, bandas, píldoras, bordes punteados) |
 | `js/datos-pc.js` | Datos semilla: póster + grafo del equipo (`GRAFO_EQUIPO`) |
+| `js/datos-marco.js` | Datos semilla: Marco de Calidad (8 dimensiones × 8 niveles) con criterios de M&E |
 | `js/modelo.js` | Conexiones, recorridos, modo estudiante y diagnóstico (sin DOM) |
 | `js/hoja.js` | Lectura de `.xlsx`/`.xltx`/`.csv` y escritura de `.xlsx`, sin librerías |
 | `js/grafo.js` | Traducción entre las hojas (grafo y habilidades) y el proyecto |
 | `js/editor.js` | Operaciones de edición: crear, conectar, renombrar y eliminar (sin DOM) |
 | `js/disenio.js` | Interfaz del modo diseño: ficha editable y pestaña Estructura |
+| `js/compartir.js` | Enlaces de solo lectura: comprime el proyecto dentro del enlace |
 | `js/vista.js` | Dibujo con D3: disposiciones radial y póster, zoom, resaltados, exportación |
 | `js/app.js` | Paneles, filtros, trayectorias, archivos, proyectos, historial y guardado local |
 | `lib/d3.min.js` | D3 v7.9.0 incluido para funcionar sin conexión (licencia ISC en `lib/D3-LICENSE.txt`) |
@@ -172,6 +239,6 @@ En esa vista, cada *Evaluación y proyectos* recibe todas las guías de su grado
 
 1. ✅ **Visor**: árbol radial y póster, zoom semántico, trayectorias, modo estudiante, diagnóstico.
 2. ✅ **Editor**: proyectos propios, modo diseño, hojas de grafo y habilidades, deshacer.
-3. **Salida**: póster PDF para el libro y visor de solo lectura para compartir con docentes.
+3. **Salida**: ✅ visor de solo lectura para docentes · póster PDF para el libro.
 4. **Colaboración**: proyectos compartidos entre varios autores (p. ej. con Supabase).
 5. **Curso de FP real**: probar el flujo con un programa de formación profesional.

@@ -80,7 +80,7 @@ const Modelo = (() => {
 
     const nodos = proyecto.nodos.map(n => {
       const habilidades = (n.habilidades || []).map(hab => ({ ...hab, _clave: claveDe(hab) }));
-      const texto = [n.titulo, ...habilidades.map(x => x.nombre), ...(n.herramientas || [])].join(' ');
+      const texto = [n.titulo, ...habilidades.map(x => x.nombre), ...(n.herramientas || []), n.descripcion || ''].join(' ');
       const rangos = habilidades.map(x => x.rango).filter(r => r !== null && r !== undefined);
       return {
         ...n,
@@ -177,9 +177,11 @@ const Modelo = (() => {
     };
   }
 
+  /** Ordena códigos «prefijo.n»: T antes de 1, y prefijos como 1A, 1B, 2A por número y letra. */
   function compararCodigos(a, b) {
-    const pa = a.split('.'), pb = b.split('.');
-    return (pa[0] === 'T' ? -1 : +pa[0]) - (pb[0] === 'T' ? -1 : +pb[0]) || (+pa[1] || 0) - (+pb[1] || 0);
+    const pa = String(a).split('.'), pb = String(b).split('.');
+    const pref = s => (s === 'T' ? '-1' : s);
+    return pref(pa[0]).localeCompare(pref(pb[0]), 'es', { numeric: true }) || (+pa[1] || 0) - (+pb[1] || 0);
   }
 
   /** Recorre el grafo hacia atrás (requisitos) o hacia adelante (lo que desbloquea). */
