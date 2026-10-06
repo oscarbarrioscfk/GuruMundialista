@@ -70,6 +70,14 @@ const Modelo = (() => {
     const ramaIdx = new Map(proyecto.ramas.map((r, i) => [r.id, i]));
     const ramaPorId = new Map(proyecto.ramas.map(r => [r.id, r]));
 
+    // Categorías (opcionales): agrupan ramas y terminan en un perfil.
+    const categorias = (proyecto.categorias || []).filter(c => c && c.id);
+    const catIdx = new Map(categorias.map((c, i) => [c.id, i]));
+    const catDe = r => (catIdx.has(r.categoria) ? catIdx.get(r.categoria) : categorias.length);
+    const ordenRamas = proyecto.ramas.map((_, i) => i)
+      .sort((a, b) => catDe(proyecto.ramas[a]) - catDe(proyecto.ramas[b]) || a - b);
+    const ramasDeCategoria = new Map(categorias.map(c => [c.id, proyecto.ramas.filter(r => r.categoria === c.id).map(r => r.id)]));
+
     const nodos = proyecto.nodos.map(n => {
       const habilidades = (n.habilidades || []).map(hab => ({ ...hab, _clave: claveDe(hab) }));
       const texto = [n.titulo, ...habilidades.map(x => x.nombre), ...(n.herramientas || [])].join(' ');
@@ -83,6 +91,7 @@ const Modelo = (() => {
         herramientas: n.herramientas || [],
         _nivel: nivelIdx.get(n.nivel),
         _rama: ramaIdx.get(n.rama),
+        _categoria: catIdx.has(ramaPorId.get(n.rama)?.categoria) ? ramaPorId.get(n.rama).categoria : null,
         _herramientas: HERRAMIENTAS.filter(t => t.re.test(texto)).map(t => t.id),
         _rangoMax: rangos.length ? Math.max(...rangos) : null,
         _busqueda: normalizar(`${n.codigo} ${texto}`)
@@ -164,7 +173,7 @@ const Modelo = (() => {
 
     return {
       proyecto, fuente, nodos, porId, aristas: listaAristas, entrantes, salientes,
-      nivelIdx, ramaIdx, ramaPorId, apariciones
+      nivelIdx, ramaIdx, ramaPorId, apariciones, categorias, catIdx, ordenRamas, ramasDeCategoria
     };
   }
 
@@ -194,6 +203,23 @@ const Modelo = (() => {
     if (completados.has(id)) return 'completado';
     const req = (m.entrantes.get(id) || []).filter(a => a.tipo !== 'deseable');
     return req.every(a => completados.has(a.origen)) ? 'disponible' : 'bloqueado';
+  }
+
+  /**
+   * Avance de cada perfil en modo estudiante: nodos completados de su categoría.
+   * Devuelve Map(idCategoria → { hechos, total, fraccion, etapa }).
+   */
+  const ETAPAS = [[0, 'Por descubrir'], [0.01, 'Aprendiz'], [0.34, 'Explorador(a)'], [0.67, 'Experto(a)'], [1, '¡Perfil completo!']];
+  function avancePerfiles(m, completados) {
+    const r = new Map();
+    m.categorias.forEach(c => {
+      const nodos = m.nodos.filter(n => n._categoria === c.id);
+      const hechos = nodos.filter(n => completados.has(n.id)).length;
+      const fraccion = nodos.length ? hechos / nodos.length : 0;
+      const etapa = ETAPAS.filter(([u]) => fraccion >= u).pop()[1];
+      r.set(c.id, { hechos, total: nodos.length, fraccion, etapa });
+    });
+    return r;
   }
 
   /**
@@ -321,5 +347,5 @@ const Modelo = (() => {
     return encontrado;
   }
 
-  return { RANGOS, HERRAMIENTAS, FUENTES, normalizar, validar, preparar, recorrer, estado, diagnosticar, compararCodigos };
+  return { RANGOS, HERRAMIENTAS, FUENTES, avancePerfiles, normalizar, validar, preparar, recorrer, estado, diagnosticar, compararCodigos };
 })();

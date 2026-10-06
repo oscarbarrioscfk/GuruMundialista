@@ -34,6 +34,19 @@
       }
     } catch (e) { /* almacenamiento no disponible o dañado */ }
     if (!almacen.proyectos[ID_EJEMPLO]) almacen.proyectos[ID_EJEMPLO] = entradaEjemplo();
+    actualizarEjemplo(almacen.proyectos[ID_EJEMPLO].proyecto);
+  }
+  // El ejemplo guardado antes de existir las categorías las recibe sin perder cambios.
+  function actualizarEjemplo(p) {
+    const semilla = window.PROYECTO_PC;
+    if (p.categorias || !semilla.categorias) return;
+    p.categorias = copia(semilla.categorias);
+    const orden = semilla.ramas.map(r => r.id);
+    p.ramas.forEach(r => {
+      const s = semilla.ramas.find(x => x.id === r.id);
+      if (s) { r.categoria = s.categoria; r.color = s.color; }
+    });
+    p.ramas.sort((a, b) => (orden.indexOf(a.id) + 1 || 99) - (orden.indexOf(b.id) + 1 || 99));
   }
   function guardar() {
     almacen.actual = estado.idProyecto;
@@ -295,11 +308,23 @@
     </svg></span>`;
   }
   function renderRamas() {
-    $('#lista-ramas').innerHTML = m.proyecto.ramas.map((r, i) => {
+    const fila = i => {
+      const r = m.proyecto.ramas[i];
       const n = m.nodos.filter(x => x._rama === i && x.tipo !== 'proyecto').length;
       return `<li><button type="button" data-rama="${esc(r.id)}" class="${estado.foco === r.id ? 'activo' : ''}" title="${esc(r.nombre)}">
         ${insigniaHTML(r)}<span>${esc(r.corto)}</span><span class="conteo">${n}</span></button></li>`;
-    }).join('');
+    };
+    const orden = m.ordenRamas;
+    const grupos = m.categorias.map(c => ({ c, idx: orden.filter(i => m.proyecto.ramas[i].categoria === c.id) })).filter(g => g.idx.length);
+    const sueltas = orden.filter(i => !m.catIdx.has(m.proyecto.ramas[i].categoria));
+    $('#lista-ramas').innerHTML = grupos.map(({ c, idx }) => `
+      <li class="grupo-categoria" style="--tinte:${esc(c.tinte || '#EEF2F8')};--c:${esc(c.color || '#4F2B63')}">
+        <button type="button" class="cabecera-categoria ${estado.foco === `cat:${c.id}` ? 'activo' : ''}" data-rama="cat:${esc(c.id)}" title="${esc(c.nombre)}">
+          <span class="perfil-mini"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#perfil-${esc(c.icono || 'generico')}" stroke="${esc(c.color)}" color="${esc(c.color)}" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span><b>${esc(c.perfil || c.nombre)}</b><small>${esc(c.nombre)}</small></span>
+        </button>
+        <ul>${idx.map(fila).join('')}</ul>
+      </li>`).join('') + sueltas.map(fila).join('');
   }
   function enfocarRama(id) {
     estado.foco = id;
@@ -394,7 +419,7 @@
       </div>
       <table class="matriz">
         <thead><tr><th></th>${m.proyecto.niveles.map(n => `<th>${esc(n.corto)}</th>`).join('')}</tr></thead>
-        <tbody>${m.proyecto.ramas.map((r, i) => `<tr><th class="fila" title="${esc(r.nombre)}">${esc(r.corto.length > 11 ? r.corto.slice(0, 10) + '.' : r.corto)}</th>${matriz[i].map(v => {
+        <tbody>${m.ordenRamas.map(i => [m.proyecto.ramas[i], i]).map(([r, i]) => `<tr><th class="fila" title="${esc(r.nombre)}" style="border-left:4px solid ${esc(m.categorias.find(c => c.id === r.categoria)?.color || 'transparent')}">${esc(r.corto.length > 11 ? r.corto.slice(0, 10) + '.' : r.corto)}</th>${matriz[i].map(v => {
           const a = v ? 0.18 + 0.82 * (v / maximo) : 0;
           return `<td style="background:${v ? hexA(r.color, a) : '#F4F6FB'};color:${a > 0.55 ? '#fff' : '#58595B'}">${v ? fraccion(v) : ''}</td>`;
         }).join('')}</tr>`).join('')}</tbody>
@@ -420,7 +445,7 @@
     btn.setAttribute('aria-pressed', estado.estudiante);
     $('#barra-estudiante').hidden = !estado.estudiante;
     const estados = new Map(m.nodos.map(n => [n.id, Modelo.estado(m, n.id, estado.completados)]));
-    vista.aplicarEstudiante(estado.estudiante, estados);
+    vista.aplicarEstudiante(estado.estudiante, estados, Modelo.avancePerfiles(m, estado.completados));
     if (!estado.estudiante) return;
     const total = m.nodos.length, hechos = [...estados.values()].filter(e => e === 'completado').length;
     const disponibles = [...estados.values()].filter(e => e === 'disponible').length;
@@ -509,6 +534,7 @@
       <p>De «${esc(archivo.name)}» se leyeron: ${r.hojas.map(esc).join(' · ')}.</p>
       ${conGrafo ? `<p>Grafo: ${pl(r.filasGrafo, 'fila', 'filas')}, ${pl(r.actualizadas, `${nodo} actualizada`, `${Editor.plural(nodo)} actualizadas`)}.</p>` : ''}
       ${r.guiasHabilidades || r.titulos ? `<p>Habilidades: ${pl(r.habilidades, 'habilidad', 'habilidades')} en ${pl(r.guiasHabilidades, nodo, Editor.plural(nodo))}; ${pl(r.titulos, 'título cambiado', 'títulos cambiados')}.</p>` : ''}
+      ${r.categorias ? `<p>Categorías: ${pl(r.categorias, 'categoría', 'categorías')}, ${pl(r.ramasAgrupadas, 'rama agrupada', 'ramas agrupadas')}.</p>` : ''}
       ${lista('Cambian de rama principal', r.cambiosRama)}
       ${lista(`${nodo[0].toUpperCase()}${Editor.plural(nodo).slice(1)} nuevas`, r.nuevas)}
       ${lista('Ramas nuevas', r.ramasNuevas)}

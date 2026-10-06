@@ -102,6 +102,16 @@ button { cursor: pointer; }
 .lista-ramas button:hover { background: var(--banda); }
 .lista-ramas button.activo { background: var(--lavanda); }
 .lista-ramas .conteo { font-size: .74rem; font-weight: 700; color: var(--texto); }
+.grupo-categoria { background: var(--tinte); border-radius: var(--radio); padding: 4px; margin-bottom: 6px; border-left: 4px solid var(--c); }
+.grupo-categoria ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.grupo-categoria ul button:hover { background: rgba(255,255,255,.6); }
+.grupo-categoria ul button.activo { background: rgba(255,255,255,.85); }
+.lista-ramas .cabecera-categoria { grid-template-columns: 34px 1fr; padding: 6px; color: var(--c); }
+.cabecera-categoria b { display: block; font-size: .86rem; font-weight: 900; line-height: 1.15; }
+.cabecera-categoria small { display: block; font-size: .7rem; font-weight: 700; color: var(--texto); line-height: 1.2; margin-top: 1px; }
+.lista-ramas .cabecera-categoria.activo { background: rgba(255,255,255,.85); }
+.perfil-mini { width: 34px; height: 34px; border-radius: 50%; background: var(--blanco); border: 2px solid var(--c); display: grid; place-items: center; }
+.perfil-mini svg { width: 28px; height: 28px; }
 .insignia-rama { width: 34px; height: 34px; position: relative; }
 .insignia-rama svg { width: 100%; height: 100%; overflow: visible; }
 
@@ -317,6 +327,9 @@ button { cursor: pointer; }
 .fila-rama .acciones-fila { grid-column: 3; grid-row: 1; }
 .fila-rama .sub { grid-column: 2 / 4; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .fila-rama .sub label { font-size: .68rem; font-weight: 700; color: #8C8D92; }
+.fila-rama .sub label.ancho { grid-column: 1 / -1; }
+.fila-categoria .sub { grid-template-columns: 1fr 1fr 48px; }
+.fila-categoria .sub input[type="color"] { height: 28px; padding: 1px; }
 .fila-nivel { display: grid; grid-template-columns: 30px 1fr 52px 24px auto; gap: 4px; align-items: center; }
 .fila-rama input, .fila-rama select, .fila-nivel input { padding: 4px 6px; font-size: .78rem; }
 .fila-rama input[type="color"] { padding: 1px; height: 28px; width: 30px; cursor: pointer; }

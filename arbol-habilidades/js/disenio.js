@@ -9,6 +9,7 @@ const Disenio = (() => {
     algoritmos: 'Algoritmos', programacion: 'Programación', datos: 'Datos', fisica: 'Computación física', modelacion: 'Modelación',
     ia: 'IA', seguridad: 'Seguridad', equidad: 'Personas', etica: 'Balanza', generico: 'Genérico'
   };
+  const PERFIL_NOMBRE = { programador: 'Programador(a)', innovador: 'Innovador(a)', ciudadano: 'Ciudadano(a)', generico: 'Genérico' };
   const listaTexto = v => String(v || '').split(/[,;]+/).map(x => x.trim()).filter(Boolean);
 
   // ── Ficha de un nodo ────────────────────────────────────────────
@@ -199,6 +200,27 @@ const Disenio = (() => {
           <label>Cada nodo se llama<input data-vocab="nodo" value="${esc(vocab.nodo || '')}" placeholder="Guía, Unidad…"></label>
         </div>
 
+        <h4>Categorías y perfiles (${(p.categorias || []).length})</h4>
+        <p class="nota">Agrupan ramas en el árbol. Cada categoría termina en un perfil: la persona hacia la que crece el árbol.</p>
+        <div class="lista-edicion">
+          ${(p.categorias || []).map((c, i) => `
+            <div class="fila-rama fila-categoria" data-cat-id="${esc(c.id)}" style="background:${esc(c.tinte || '#F4F6FB')}">
+              <input type="color" data-cat-campo="color" value="${esc(c.color)}" aria-label="Color de ${esc(c.nombre)}">
+              <input data-cat-campo="nombre" value="${esc(c.nombre)}" aria-label="Nombre de la categoría" title="Nombre de la categoría">
+              <span class="acciones-fila">
+                <button type="button" data-mover-cat="-1" ${i === 0 ? 'disabled' : ''} aria-label="Subir">↑</button>
+                <button type="button" data-mover-cat="1" ${i === p.categorias.length - 1 ? 'disabled' : ''} aria-label="Bajar">↓</button>
+                <button type="button" data-eliminar-cat aria-label="Eliminar">×</button>
+              </span>
+              <span class="sub">
+                <label>Perfil<input data-cat-campo="perfil" value="${esc(c.perfil || '')}" placeholder="p. ej. Programador(a)"></label>
+                <label>Avatar<select data-cat-campo="icono">${Editor.PERFILES.map(ic => `<option value="${ic}" ${ic === c.icono ? 'selected' : ''}>${PERFIL_NOMBRE[ic]}</option>`).join('')}</select></label>
+                <label>Fondo<input type="color" data-cat-campo="tinte" value="${esc(c.tinte || '#F4F6FB')}"></label>
+              </span>
+            </div>`).join('')}
+        </div>
+        <button type="button" class="enlace" data-accion-est="agregar-cat">+ Añadir categoría</button>
+
         <h4>Ramas (${p.ramas.length})</h4>
         <div class="lista-edicion">
           ${p.ramas.map((r, i) => `
@@ -208,6 +230,7 @@ const Disenio = (() => {
               <span class="sub">
                 <label>Corto<input data-rama-campo="corto" value="${esc(r.corto)}" aria-label="Nombre corto" title="Nombre corto (en el árbol)"></label>
                 <label>Ícono<select data-rama-campo="icono" aria-label="Ícono">${Editor.ICONOS.map(ic => `<option value="${ic}" ${ic === r.icono ? 'selected' : ''}>${ICONO_NOMBRE[ic]}</option>`).join('')}</select></label>
+                ${(p.categorias || []).length ? `<label class="ancho">Categoría<select data-rama-campo="categoria"><option value="">— Sin categoría —</option>${p.categorias.map(c => `<option value="${esc(c.id)}" ${c.id === r.categoria ? 'selected' : ''}>${esc(c.perfil || c.nombre)} · ${esc(c.nombre)}</option>`).join('')}</select></label>` : ''}
               </span>
               <span class="acciones-fila">
                 <button type="button" data-mover-rama="-1" ${i === 0 ? 'disabled' : ''} aria-label="Subir">↑</button>
@@ -245,9 +268,15 @@ const Disenio = (() => {
         ctx.cambiar(p => { p[el.dataset.proy] = el.value.trim(); }, { estructura: false });
       } else if (el.dataset.vocab) {
         ctx.cambiar(p => { p.vocabulario = { ...(p.vocabulario || {}), [el.dataset.vocab]: el.value.trim() }; }, { estructura: false });
+      } else if (el.dataset.ramaCampo === 'categoria') {
+        const id = el.closest('[data-rama-id]').dataset.ramaId;
+        ctx.cambiar(p => { const r = p.ramas.find(x => x.id === id); if (el.value) r.categoria = el.value; else delete r.categoria; }, { estructura: false });
       } else if (el.dataset.ramaCampo) {
         const id = el.closest('[data-rama-id]').dataset.ramaId;
         ctx.cambiar(p => { const r = p.ramas.find(x => x.id === id); r[el.dataset.ramaCampo] = el.value.trim() || r[el.dataset.ramaCampo]; }, { estructura: false });
+      } else if (el.dataset.catCampo) {
+        const id = el.closest('[data-cat-id]').dataset.catId;
+        ctx.cambiar(p => { const c = p.categorias.find(x => x.id === id); c[el.dataset.catCampo] = el.value.trim() || c[el.dataset.catCampo]; }, { estructura: el.dataset.catCampo === 'tinte' });
       } else if (el.dataset.nivelCampo) {
         const id = el.closest('[data-nivel-id]').dataset.nivelId;
         ctx.cambiar(p => { const nv = p.niveles.find(x => x.id === id); nv[el.dataset.nivelCampo] = el.value.trim() || nv[el.dataset.nivelCampo]; }, { estructura: false });
@@ -264,6 +293,13 @@ const Disenio = (() => {
       const b = e.target.closest('button');
       if (!b) return;
       const rama = b.closest('[data-rama-id]')?.dataset.ramaId, nivel = b.closest('[data-nivel-id]')?.dataset.nivelId;
+      const cat = b.closest('[data-cat-id]')?.dataset.catId;
+      if (b.dataset.accionEst === 'agregar-cat') { ctx.cambiar(p => { Editor.agregarCategoria(p); }); return; }
+      if (b.dataset.moverCat) { ctx.cambiar(p => { Editor.mover(p.categorias, cat, +b.dataset.moverCat); }); return; }
+      if (b.hasAttribute('data-eliminar-cat')) {
+        if (!confirm('¿Eliminar esta categoría? Sus ramas quedan sin categoría (no se borran).')) return;
+        ctx.cambiar(p => { Editor.eliminarCategoria(p, cat); }); return;
+      }
       if (b.dataset.accionEst === 'agregar-rama') ctx.cambiar(p => { Editor.agregarRama(p); });
       else if (b.dataset.accionEst === 'agregar-nivel') ctx.cambiar(p => { Editor.agregarNivel(p); });
       else if (b.dataset.moverRama) ctx.cambiar(p => { Editor.mover(p.ramas, rama, +b.dataset.moverRama); });

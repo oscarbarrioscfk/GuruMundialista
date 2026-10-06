@@ -29,6 +29,7 @@ instalación ni conexión a internet. Se publica con GitHub Pages desde la rama 
 | Función | Cómo se usa |
 |---|---|
 | **Árbol radial** | Raíz al centro, una rama por eje, un anillo por grado. El ancho de cada rama se ajusta a su densidad. |
+| **Categorías y perfiles** | Las ramas se agrupan en categorías (*Conceptos y habilidades en computación*, *Prácticas de resolución de problemas usando la computación*, *Ciudadanía digital*) con su color y su arco. Cada categoría termina en un **perfil** (*Programador(a)*, *Innovador(a) con la tecnología*, *Ciudadano(a) digital*): el árbol crece desde la raíz hacia la persona. Clic en un perfil o en su grupo del panel enfoca toda la categoría. |
 | **Vista póster** | La misma información en la cuadrícula ejes × grados del póster BC. El cambio entre vistas es animado. |
 | **Zoom semántico** | Lejos: ramas · Medio: guías · Cerca: habilidades con su rango (●○○ N0, ●●○ N1, ●●● N2). Las etiquetas aparecen solo donde caben. |
 | **Requisitos y desbloqueos** | Clic en una guía: en azul lo que requiere, en morado lo que desbloquea (fuerte lo directo, suave lo indirecto). Línea continua = indispensable, a trazos = deseable. |
@@ -36,7 +37,7 @@ instalación ni conexión a internet. Se publica con GitHub Pages desde la rama 
 | **Foco por rama** | Clic en una rama (en el árbol o en el panel) para encuadrarla y atenuar el resto. |
 | **Trayectorias** | 4 rutas de ejemplo (*De bloques a texto*, *Creadores con micro:bit*, *Detectives de datos*, *IA responsable*) y creación de rutas propias haciendo clic en las guías. |
 | **Filtros y búsqueda** | Por herramienta (Scratch, micro:bit, Python…), rango N0/N1/N2, rango de grados o texto. |
-| **Modo estudiante** | Marca guías completadas; se iluminan las disponibles. Solo bloquean los prerrequisitos indispensables; los deseables aparecen como recomendación. |
+| **Modo estudiante** | Marca guías completadas; se iluminan las disponibles. Solo bloquean los prerrequisitos indispensables; los deseables aparecen como recomendación. Cada perfil muestra su avance (*Aprendiz → Explorador(a) → Experto(a)*). |
 | **Diagnóstico** | Mapa de equilibrio rama × grado (con *todas las asociaciones* reproduce el mapa de calor «Currículo en Pensamiento Computacional» del equipo) y alertas de diseño: ramas sin guías propias, dependencias incoherentes, guías desconectadas, saltos (N0 → N2) y retrocesos de rango. |
 | **Archivo** | Guardar y abrir el proyecto (`.json`), descargar imagen (`.svg` / `.png` en alta resolución). |
 
@@ -49,9 +50,9 @@ instalación ni conexión a internet. Se publica con GitHub Pages desde la rama 
 | **Guardar una copia** | Duplica el proyecto abierto para experimentar sin tocar el original. |
 | **✎ Diseñar** | Activa el modo edición: **doble clic** en un hueco (anillo × rama) crea una guía ahí; **arrastrar** de una guía a otra las conecta (con **Mayús**, deseable); **clic** abre su ficha editable. |
 | **Ficha editable** | Código, título, tipo, nivel, rama principal y secundarias, herramientas, habilidades con nivel N0/N1/N2 y clave, prerrequisitos indispensables y deseables. |
-| **Estructura** | Pestaña para editar el proyecto (título, vocabulario), las ramas (nombre, color, ícono, orden) y los niveles. |
+| **Estructura** | Pestaña para editar el proyecto (título, vocabulario), las **categorías y perfiles** (nombre, perfil, avatar, colores), las ramas (nombre, color, ícono, categoría, orden) y los niveles. |
 | **Deshacer** | Botón ↶ o **Ctrl+Z** (hasta 80 pasos), también para deshacer una importación completa. |
-| **Hojas de cálculo** | Importar y exportar un libro `.xlsx` con las hojas *Grafo guías* y *Habilidades*, o descargar la plantilla vacía. |
+| **Hojas de cálculo** | Importar y exportar un libro `.xlsx` con las hojas *Grafo guías*, *Habilidades* y *Categorías*, o descargar la plantilla vacía. |
 
 Todo se guarda **solo en el navegador** de quien lo usa. Para compartir un diseño, expórtalo
 en `.json` o en hoja de cálculo.
@@ -84,7 +85,15 @@ por sus columnas (aunque cambie el orden o falten algunas), y un mismo libro pue
 | 7.1 | El juego del control | Scratch | N1 | scratch |
 | 7.1 | | Condicionales | N2 | condicionales |
 
+**Categorías** (opcional, como la tabla de categorías del equipo):
+
+| Categoría principal | Subcategorías | Perfil |
+|---|---|---|
+| Conceptos y habilidades en computación | Algoritmos, patrones, abstracción y descomposición | Programador(a) |
+| | Lógica, programación y depuración | |
+
 - *Subcategoría* es la rama principal; *Subcategoría 2 y 3*, las secundarias.
+- En *Categorías*, una subcategoría por fila; la categoría y el perfil basta con escribirlos en su primera fila (sirve la tabla con celdas combinadas).
 - *Nivel de dominio*: `N0`, `N1`, `N2` (o vacío). El título basta en la primera fila de cada guía.
 - *Clave* (opcional): la misma clave en varias guías indica que es la misma habilidad que se profundiza.
 - Los códigos `T1` y `T.1` son equivalentes; el número antes del punto es el nivel.
@@ -113,8 +122,10 @@ En esa vista, cada *Evaluación y proyectos* recibe todas las guías de su grado
   "titulo": "Pensamiento Computacional",
   "tipo": "libro",                       // "libro" o "curso" (FP)
   "vocabulario": { "nivel": "Grado", "nodo": "Guía", "raiz": "Pensamiento computacional" },
+  "categorias": [{ "id": "CON", "nombre": "Conceptos y habilidades en computación", "perfil": "Programador(a)",
+                   "icono": "programador", "color": "#3F6FAE", "tinte": "#DCE5F4" }],
   "niveles": [{ "id": "T", "nombre": "Transición", "corto": "T" }],
-  "ramas":   [{ "id": "ALG", "nombre": "Algoritmos…", "corto": "Algoritmos", "color": "#662B80", "icono": "algoritmos" }],
+  "ramas":   [{ "id": "ALG", "categoria": "CON", "nombre": "Algoritmos…", "corto": "Algoritmos", "color": "#662B80", "icono": "algoritmos" }],
   "nodos": [{
     "id": "6.3", "codigo": "6.3", "titulo": "Invernaderos",
     "nivel": "6", "rama": "DAT", "ramasSecundarias": ["FIS"],
@@ -128,8 +139,9 @@ En esa vista, cada *Evaluación y proyectos* recibe todas las guías de su grado
 }
 ```
 
-Íconos disponibles: `algoritmos`, `programacion`, `datos`, `fisica`, `modelacion`, `ia`,
-`seguridad`, `equidad`, `etica`, `generico`.
+Íconos de rama: `algoritmos`, `programacion`, `datos`, `fisica`, `modelacion`, `ia`,
+`seguridad`, `equidad`, `etica`, `generico`. Avatares de perfil: `programador`, `innovador`,
+`ciudadano`, `generico`.
 
 ## 🧱 Estructura
 
@@ -152,7 +164,8 @@ En esa vista, cada *Evaluación y proyectos* recibe todas las guías de su grado
 - Las **claves** que agrupan habilidades parecidas (p. ej. *Seguir instrucciones* y *Seguir
   instrucciones en tarjetas*) son una propuesta y definen las conexiones.
 - La tipografía del póster es *Basic Sans*; en la web se usa **Nunito Sans** como equivalente libre.
-- Los colores por rama amplían la paleta BC (ciruela, morado, azul) para distinguir 9 ramas.
+- Los colores de cada rama siguen la familia de su categoría (azules y morados, verdes, cálidos), tomada de la tabla de categorías del equipo.
+- Los nombres de los perfiles son una propuesta para conversar con el equipo.
 
 ## 🛣️ Fases
 

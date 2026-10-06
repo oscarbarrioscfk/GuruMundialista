@@ -46,16 +46,26 @@
       { id: '11', nombre: 'Grado 11°', corto: '11°' }
     ],
 
+    /*
+     * Categorías: agrupan las ramas y terminan en un perfil, la persona hacia la
+     * que crece el árbol. Colores tomados de la tabla de categorías del equipo.
+     */
+    categorias: [
+      { id: 'CON', nombre: 'Conceptos y habilidades en computación', perfil: 'Programador(a)', icono: 'programador', color: '#3F6FAE', tinte: '#DCE5F4' },
+      { id: 'PRA', nombre: 'Prácticas de resolución de problemas usando la computación', perfil: 'Innovador(a) con la tecnología', icono: 'innovador', color: '#3C8D5A', tinte: '#DCEEDB' },
+      { id: 'CIU', nombre: 'Ciudadanía digital', perfil: 'Ciudadano(a) digital', icono: 'ciudadano', color: '#C8553D', tinte: '#FBE3DA' }
+    ],
+
     ramas: [
-      { id: 'ALG', nombre: 'Algoritmos, patrones, abstracción y descomposición', corto: 'Algoritmos', color: '#662B80', icono: 'algoritmos' },
-      { id: 'LOG', nombre: 'Lógica, programación y depuración', corto: 'Programación', color: '#4A78C2', icono: 'programacion' },
-      { id: 'DAT', nombre: 'Prácticas de datos', corto: 'Datos', color: '#1F8A8A', icono: 'datos' },
-      { id: 'FIS', nombre: 'Computación física', corto: 'Computación física', color: '#D9692B', icono: 'fisica' },
-      { id: 'MOD', nombre: 'Modelación y simulación', corto: 'Modelación', color: '#8E5CC2', icono: 'modelacion' },
-      { id: 'IA', nombre: 'Inteligencia artificial', corto: 'IA', color: '#C2417A', icono: 'ia' },
-      { id: 'SEG', nombre: 'Seguridad en el mundo digital', corto: 'Seguridad', color: '#4F2B63', icono: 'seguridad' },
-      { id: 'EQU', nombre: 'Equidad en el acceso y la participación en el mundo digital', corto: 'Equidad', color: '#C98A12', icono: 'equidad' },
-      { id: 'ETI', nombre: 'Ética y confiabilidad de los datos y la información', corto: 'Ética', color: '#3C8D5A', icono: 'etica' }
+      { id: 'ALG', categoria: 'CON', nombre: 'Algoritmos, patrones, abstracción y descomposición', corto: 'Algoritmos', color: '#662B80', icono: 'algoritmos' },
+      { id: 'LOG', categoria: 'CON', nombre: 'Lógica, programación y depuración', corto: 'Programación', color: '#3F6FAE', icono: 'programacion' },
+      { id: 'DAT', categoria: 'CON', nombre: 'Prácticas de datos', corto: 'Datos', color: '#8E5CC2', icono: 'datos' },
+      { id: 'MOD', categoria: 'PRA', nombre: 'Modelación y simulación', corto: 'Modelación', color: '#3C8D5A', icono: 'modelacion' },
+      { id: 'FIS', categoria: 'PRA', nombre: 'Computación física', corto: 'Computación física', color: '#1F8A8A', icono: 'fisica' },
+      { id: 'IA', categoria: 'PRA', nombre: 'Inteligencia artificial', corto: 'IA', color: '#6E9A2E', icono: 'ia' },
+      { id: 'SEG', categoria: 'CIU', nombre: 'Seguridad en el mundo digital', corto: 'Seguridad', color: '#C8553D', icono: 'seguridad' },
+      { id: 'EQU', categoria: 'CIU', nombre: 'Equidad en el acceso y la participación en el mundo digital', corto: 'Equidad', color: '#C98A12', icono: 'equidad' },
+      { id: 'ETI', categoria: 'CIU', nombre: 'Ética y confiabilidad de los datos y la información', corto: 'Ética', color: '#B0476B', icono: 'etica' }
     ],
 
     nodos: [

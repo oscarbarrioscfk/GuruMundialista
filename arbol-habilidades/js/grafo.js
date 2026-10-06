@@ -7,11 +7,21 @@
  * Hoja «Habilidades» (una fila por habilidad):
  *   Guía · Título · Habilidad · Nivel de dominio (N0/N1/N2) · Clave
  *
- * Un mismo archivo puede traer las dos hojas; se reconocen por sus columnas.
+ * Hoja «Categorías» (opcional, como la tabla de categorías del equipo):
+ *   Categoría principal · Subcategorías · Perfil
+ *   Una subcategoría por fila; la categoría puede ir solo en su primera fila.
+ *
+ * Un mismo archivo puede traer las tres hojas; se reconocen por sus columnas.
  */
 const Grafo = (() => {
   const CABECERA = ['Guía', 'Guía indispensable', 'Guía deseable', 'Subcategoría', 'Subcategoría 2', 'Subcategoría 3', 'Herramienta computacional'];
   const CABECERA_HAB = ['Guía', 'Título', 'Habilidad', 'Nivel de dominio', 'Clave'];
+  const CABECERA_CAT = ['Categoría principal', 'Subcategorías', 'Perfil'];
+  const ALIAS_CAT = {
+    categoria: ['categoriaprincipal', 'categoria', 'categorias'],
+    ramas: ['subcategorias', 'subcategoria', 'ramas', 'rama'],
+    perfil: ['perfil', 'perfildesalida', 'persona']
+  };
   const ALIAS_GRAFO = {
     guia: ['guia', 'codigo', 'nodo', 'unidad'],
     indispensable: ['guiaindispensable', 'indispensable', 'indispensables', 'prerrequisitos', 'prerrequisito'],
@@ -37,7 +47,7 @@ const Grafo = (() => {
   const aHoja = c => c.replace(/^T\.(\d+)$/, 'T$1');
   const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
 
-  function ubicarColumnas(filas, alias) {
+  function ubicarColumnas(filas, alias, requerida = 'guia') {
     for (let i = 0; i < Math.min(filas.length, 6); i++) {
       const cab = (filas[i] || []).map(c => clave(c || ''));
       const col = {};
@@ -45,13 +55,15 @@ const Grafo = (() => {
         const j = cab.findIndex(c => nombres.includes(c));
         if (j >= 0) col[k] = j;
       });
-      if (col.guia !== undefined) return { fila: i, col };
+      if (col[requerida] !== undefined) return { fila: i, col };
     }
     return null;
   }
 
   /** 'habilidades', 'grafo' o null según las columnas de la hoja. */
   function tipoDeHoja(filas) {
+    const c = ubicarColumnas(filas, ALIAS_CAT, 'categoria');
+    if (c && c.col.ramas !== undefined && ubicarColumnas(filas, ALIAS_GRAFO)?.col.indispensable === undefined) return 'categorias';
     const h = ubicarColumnas(filas, ALIAS_HAB);
     if (h && h.col.habilidad !== undefined) return 'habilidades';
     const g = ubicarColumnas(filas, ALIAS_GRAFO);
@@ -166,6 +178,40 @@ const Grafo = (() => {
     });
   }
 
+  // ── Hoja de categorías ──────────────────────────────────────────
+  function aplicarCategorias(p, filas, resumen) {
+    const ub = ubicarColumnas(filas, ALIAS_CAT, 'categoria');
+    const celda = (f, k) => (ub.col[k] === undefined ? '' : String(f[ub.col[k]] ?? '').trim());
+    const ramas = new Map();
+    p.ramas.forEach(r => [r.id, r.nombre, r.corto].forEach(x => x && ramas.set(clave(x), r)));
+    p.categorias = p.categorias || [];
+    let actual = null;
+    const vistas = new Set();
+    filas.slice(ub.fila + 1).forEach(f => {
+      const nombre = celda(f, 'categoria');
+      if (nombre) {
+        actual = p.categorias.find(c => clave(c.nombre) === clave(nombre) || clave(c.perfil || '') === clave(nombre));
+        if (!actual) { actual = Editor.agregarCategoria(p, nombre); actual.perfil = ''; resumen.categoriasNuevas.push(nombre); }
+        vistas.add(actual.id);
+      }
+      if (!actual) return;
+      const perfil = celda(f, 'perfil');
+      if (perfil) actual.perfil = perfil;
+      // Los nombres de rama pueden llevar comas: primero el texto completo, luego partes separadas por «;».
+      const texto = celda(f, 'ramas');
+      if (!texto) return;
+      const partes = ramas.has(clave(texto)) ? [texto] : texto.split(/[;\n]+/).map(x => x.trim()).filter(Boolean);
+      partes.forEach(nr => {
+        const r = ramas.get(clave(nr));
+        if (!r) { resumen.avisos.push(`La subcategoría «${nr}» no corresponde a ninguna rama del proyecto.`); return; }
+        r.categoria = actual.id;
+        resumen.ramasAgrupadas++;
+      });
+    });
+    p.categorias.forEach(c => { if (!c.perfil) c.perfil = c.nombre; });
+    resumen.categorias = vistas.size;
+  }
+
   /**
    * Aplica un libro de hojas ([{ nombre, filas }]) a una copia del proyecto.
    * Primero el grafo y luego las habilidades, para que las guías nuevas reciban título.
@@ -174,17 +220,18 @@ const Grafo = (() => {
     const p = JSON.parse(JSON.stringify(proyecto));
     const resumen = {
       hojas: [], filasGrafo: 0, actualizadas: new Set(), nuevas: [], ramasNuevas: [], nivelesNuevos: [], cambiosRama: [],
-      guiasHabilidades: 0, habilidades: 0, titulos: 0, avisos: []
+      guiasHabilidades: 0, habilidades: 0, titulos: 0, categorias: 0, categoriasNuevas: [], ramasAgrupadas: 0, avisos: []
     };
     const ctx = contexto(p, resumen);
     const clasificadas = hojas.map(h => ({ ...h, tipo: tipoDeHoja(h.filas) }));
     const reconocidas = clasificadas.filter(h => h.tipo);
     if (!reconocidas.length) {
       throw new Error('No reconozco ninguna hoja. El grafo necesita las columnas «' + CABECERA.join(', ')
-        + '» y la hoja de habilidades «' + CABECERA_HAB.join(', ') + '».');
+        + '», la hoja de habilidades «' + CABECERA_HAB.join(', ') + '» y la de categorías «' + CABECERA_CAT.join(', ') + '».');
     }
     reconocidas.filter(h => h.tipo === 'grafo').forEach(h => { aplicarGrafo(p, h.filas, resumen, ctx); resumen.hojas.push(`${h.nombre} (grafo)`); });
     reconocidas.filter(h => h.tipo === 'habilidades').forEach(h => { aplicarHabilidades(p, h.filas, resumen, ctx); resumen.hojas.push(`${h.nombre} (habilidades)`); });
+    reconocidas.filter(h => h.tipo === 'categorias').forEach(h => { aplicarCategorias(p, h.filas, resumen); resumen.hojas.push(`${h.nombre} (categorías)`); });
     const ids = new Set(p.nodos.map(n => n.id));
     p.nodos.forEach(n => [...(n.prerrequisitos || []), ...(n.deseables || [])].forEach(x => {
       if (!ids.has(x)) resumen.avisos.push(`${n.codigo} depende de ${x}, que no existe.`);
@@ -232,6 +279,15 @@ const Grafo = (() => {
     return salida;
   }
 
+  /** Filas de la hoja de categorías (la categoría solo en su primera fila, como la tabla del equipo). */
+  function filasCategorias(proyecto) {
+    const salida = [CABECERA_CAT];
+    (proyecto.categorias || []).forEach(c => {
+      proyecto.ramas.filter(r => r.categoria === c.id).forEach((r, i) => salida.push([i === 0 ? c.nombre : '', r.nombre, i === 0 ? (c.perfil || '') : '']));
+    });
+    return salida;
+  }
+
   const INSTRUCCIONES = [
     ['Cómo usar este libro con el Árbol de habilidades'],
     ['Hoja «Grafo guías»: una fila por guía. Define su rama (Subcategoría), ramas secundarias (Subcategoría 2 y 3), herramienta y prerrequisitos.'],
@@ -241,7 +297,9 @@ const Grafo = (() => {
     ['   · Nivel de dominio: N0 (inicial), N1 (intermedio), N2 (avanzado) o vacío.'],
     ['   · Clave (opcional): el mismo identificador en varias guías indica que es la misma habilidad que se profundiza (p. ej. «condicionales»).'],
     ['Los códigos de guía empiezan por el nivel: 6.3 es la guía 3 del nivel 6. T1 y T.1 son equivalentes.'],
-    ['Para importar: Archivo → Importar hoja de cálculo. Se pueden importar las dos hojas a la vez o cada una por separado.']
+    ['Hoja «Categorías» (opcional): agrupa las subcategorías (ramas) en categorías principales y da el perfil hacia el que crece cada una (p. ej. Programador(a)).'],
+    ['   · Una subcategoría por fila. La categoría y el perfil basta con ponerlos en su primera fila.'],
+    ['Para importar: Archivo → Importar hoja de cálculo. Se pueden importar todas las hojas a la vez o cada una por separado.']
   ];
 
   /** Libro completo: grafo, habilidades e instrucciones. */
@@ -249,6 +307,7 @@ const Grafo = (() => {
     return [
       { nombre: 'Grafo guías', filas: filas(proyecto) },
       { nombre: 'Habilidades', filas: filasHabilidades(proyecto) },
+      ...((proyecto.categorias || []).length ? [{ nombre: 'Categorías', filas: filasCategorias(proyecto) }] : []),
       { nombre: 'Instrucciones', filas: INSTRUCCIONES }
     ];
   }
@@ -258,9 +317,10 @@ const Grafo = (() => {
     return [
       { nombre: 'Grafo guías', filas: [CABECERA, ['1.1', '', '', 'Algoritmos', '', '', ''], ['1.2', '1.1', '', 'Programación', 'Algoritmos', '', 'Scratch']] },
       { nombre: 'Habilidades', filas: [CABECERA_HAB, ['1.1', 'Mi primera guía', 'Seguir instrucciones', 'N0', 'instrucciones'], ['1.1', '', 'Descomponer un problema en pasos', 'N0', 'descomposicion'], ['1.2', 'Programar una historia', 'Programar en bloques', 'N1', 'bloques']] },
+      { nombre: 'Categorías', filas: [CABECERA_CAT, ['Conceptos y habilidades en computación', 'Algoritmos', 'Programador(a)'], ['', 'Programación', '']] },
       { nombre: 'Instrucciones', filas: INSTRUCCIONES }
     ];
   }
 
-  return { CABECERA, CABECERA_HAB, tipoDeHoja, aplicar, aplicarLibro, filas, filasHabilidades, libro, plantilla };
+  return { CABECERA, CABECERA_HAB, CABECERA_CAT, tipoDeHoja, filasCategorias, aplicar, aplicarLibro, filas, filasHabilidades, libro, plantilla };
 })();
