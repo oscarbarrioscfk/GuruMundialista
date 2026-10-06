@@ -5,10 +5,10 @@
  */
 const Editor = (() => {
   const PALETA = ['#662B80', '#4F79B8', '#7A4A9E', '#C2506F', '#2F5B94', '#8E5FB5', '#B8456A', '#4D8BBF', '#5C3B7E', '#9C3D5E', '#3E8C8E', '#4F2B63'];
-  const PERFILES = ['programador', 'innovador', 'ciudadano', 'generico'];
+  const PERFILES = ['programador', 'innovador', 'ciudadano', 'directivo', 'plan', 'docente', 'mentor', 'diversidad', 'joven', 'estudiante', 'nina', 'generico'];
   // Familias de la paleta de las guías: azul periwinkle, lavanda, rosa, ciruela y turquesa suave.
   const COLORES_CATEGORIA = [['#4F79B8', '#E4ECF7'], ['#7A4A9E', '#EFE7F5'], ['#C2506F', '#FBE8ED'], ['#4F2B63', '#ECE6F0'], ['#3E8C8E', '#E2F1F1']];
-  const ICONOS = ['algoritmos', 'programacion', 'datos', 'fisica', 'modelacion', 'ia', 'seguridad', 'equidad', 'etica', 'generico'];
+  const ICONOS = ['algoritmos', 'programacion', 'datos', 'fisica', 'modelacion', 'ia', 'seguridad', 'equidad', 'etica', 'liderazgo', 'plan', 'ensenanza', 'desarrollo', 'inclusion', 'terciaria', 'impacto', 'genero', 'generico'];
 
   const PLANTILLAS = {
     libro: {

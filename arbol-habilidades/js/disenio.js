@@ -7,9 +7,15 @@ const Disenio = (() => {
   let ctx = null;
   const ICONO_NOMBRE = {
     algoritmos: 'Algoritmos', programacion: 'Programación', datos: 'Datos', fisica: 'Computación física', modelacion: 'Modelación',
-    ia: 'IA', seguridad: 'Seguridad', equidad: 'Personas', etica: 'Balanza', generico: 'Genérico'
+    ia: 'IA', seguridad: 'Seguridad', equidad: 'Personas', etica: 'Balanza',
+    liderazgo: 'Bandera', plan: 'Documento', ensenanza: 'Tablero', desarrollo: 'Escalera', inclusion: 'Grupo',
+    terciaria: 'Birrete', impacto: 'Gráfica', genero: 'Género', generico: 'Genérico'
   };
-  const PERFIL_NOMBRE = { programador: 'Programador(a)', innovador: 'Innovador(a)', ciudadano: 'Ciudadano(a)', generico: 'Genérico' };
+  const PERFIL_NOMBRE = {
+    programador: 'Programador(a)', innovador: 'Innovador(a)', ciudadano: 'Ciudadano(a)', directivo: 'Directivo(a)',
+    plan: 'Docente con plan', docente: 'Docente', mentor: 'Mentor(a)', diversidad: 'Grupo diverso', joven: 'Joven con birrete',
+    estudiante: 'Estudiante', nina: 'Niña', generico: 'Genérico'
+  };
   const listaTexto = v => String(v || '').split(/[,;]+/).map(x => x.trim()).filter(Boolean);
 
   // ── Ficha de un nodo ────────────────────────────────────────────
@@ -60,9 +66,11 @@ const Disenio = (() => {
         <fieldset><legend>Ramas secundarias</legend><div class="chips">
           ${p.ramas.filter(r => r.id !== n.rama).map(r => `<button type="button" class="chip" data-secundaria="${esc(r.id)}" aria-pressed="${(n.ramasSecundarias || []).includes(r.id)}" style="--c:${r.color}">${esc(r.corto)}</button>`).join('')}
         </div></fieldset>
+        <label>Descripción <small>(opcional)</small><textarea data-campo="descripcion" rows="4" placeholder="Qué describe este nodo">${esc(n.descripcion || '')}</textarea></label>
+        <label>Para avanzar <small>(opcional: qué debe cambiar para llegar al siguiente ${esc((vocab.nivel || 'nivel').toLowerCase())})</small><textarea data-campo="avance" rows="2">${esc(n.avance || '')}</textarea></label>
         <label>Herramientas <small>(separadas por comas)</small><input data-campo="herramientas" value="${esc((n.herramientas || []).join(', '))}" placeholder="Scratch, micro:bit…"></label>
 
-        <fieldset><legend>Habilidades</legend>
+        <fieldset><legend>${esc(vocab.habilidad ? Editor.plural(vocab.habilidad) : 'Habilidades')}</legend>
           <div class="tabla-hab">
             ${(n.habilidades || []).map((h, i) => `
               <div class="fila-hab">
@@ -121,6 +129,7 @@ const Disenio = (() => {
             const n = p.nodos.find(x => x.id === id);
             if (campo === 'herramientas') n.herramientas = listaTexto(valor);
             else if (campo === 'titulo') n.titulo = valor.trim() || n.titulo;
+            else if (campo === 'descripcion' || campo === 'avance') { if (valor.trim()) n[campo] = valor.trim(); else delete n[campo]; }
             else if (campo === 'rama') { n.rama = valor; n.ramasSecundarias = (n.ramasSecundarias || []).filter(r => r !== valor); }
             else n[campo] = valor;
           }, { formulario: campo === 'rama' || campo === 'tipo' });
@@ -198,6 +207,10 @@ const Disenio = (() => {
         <div class="dos-col">
           <label>Cada nivel se llama<input data-vocab="nivel" value="${esc(vocab.nivel || '')}" placeholder="Grado, Módulo…"></label>
           <label>Cada nodo se llama<input data-vocab="nodo" value="${esc(vocab.nodo || '')}" placeholder="Guía, Unidad…"></label>
+        </div>
+        <div class="dos-col">
+          <label>Cada habilidad se llama<input data-vocab="habilidad" value="${esc(vocab.habilidad || '')}" placeholder="Habilidad, Criterio…"></label>
+          <label>El modo de progreso se llama<input data-vocab="modo" value="${esc(vocab.modo || '')}" placeholder="Modo estudiante"></label>
         </div>
 
         <h4>Categorías y perfiles (${(p.categorias || []).length})</h4>

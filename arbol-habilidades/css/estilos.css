@@ -211,6 +211,11 @@ button { cursor: pointer; }
 .etiqueta { font-size: .74rem; font-weight: 800; padding: 2px 9px; border-radius: 999px; color: var(--blanco); }
 .etiqueta.secundaria { background: var(--blanco) !important; border: 1.5px dashed currentColor; }
 .ficha h4 { margin: 16px 0 6px; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ciruela); font-weight: 900; }
+.ficha-descripcion { margin: 12px 0 0; font-size: .86rem; line-height: 1.5; color: var(--texto-fuerte); }
+.ficha-avance { margin-top: 14px; padding: 8px 12px 10px; border-left: 4px solid var(--azul); background: var(--banda); border-radius: 0 var(--radio) var(--radio) 0; }
+.ficha-avance h4 { margin-top: 2px; color: var(--azul-osc); }
+.ficha-avance p { margin: 0; font-size: .86rem; line-height: 1.45; color: var(--texto-fuerte); }
+.formulario textarea { width: 100%; font: inherit; font-size: .85rem; resize: vertical; }
 .habilidades { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .habilidades li {
   display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;

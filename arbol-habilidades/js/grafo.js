@@ -3,7 +3,8 @@
  *
  * Hoja «Grafo guías» (una fila por guía, formato del Anexo 1):
  *   Guía · Guía indispensable · Guía deseable · Subcategoría · Subcategoría 2 ·
- *   Subcategoría 3 · Herramienta computacional
+ *   Subcategoría 3 · Herramienta computacional · Descripción · Para avanzar
+ *   (las dos últimas son opcionales)
  * Hoja «Habilidades» (una fila por habilidad):
  *   Guía · Título · Habilidad · Nivel de dominio (N0/N1/N2) · Clave
  *
@@ -14,7 +15,7 @@
  * Un mismo archivo puede traer las tres hojas; se reconocen por sus columnas.
  */
 const Grafo = (() => {
-  const CABECERA = ['Guía', 'Guía indispensable', 'Guía deseable', 'Subcategoría', 'Subcategoría 2', 'Subcategoría 3', 'Herramienta computacional'];
+  const CABECERA = ['Guía', 'Guía indispensable', 'Guía deseable', 'Subcategoría', 'Subcategoría 2', 'Subcategoría 3', 'Herramienta computacional', 'Descripción', 'Para avanzar'];
   const CABECERA_HAB = ['Guía', 'Título', 'Habilidad', 'Nivel de dominio', 'Clave'];
   const CABECERA_CAT = ['Categoría principal', 'Subcategorías', 'Perfil'];
   const ALIAS_CAT = {
@@ -29,7 +30,9 @@ const Grafo = (() => {
     sub1: ['subcategoria', 'subcategoria1', 'ejeprincipal', 'eje', 'rama'],
     sub2: ['subcategoria2', 'eje2', 'rama2'],
     sub3: ['subcategoria3', 'eje3', 'rama3'],
-    herramienta: ['herramientacomputacional', 'herramienta', 'herramientas']
+    herramienta: ['herramientacomputacional', 'herramienta', 'herramientas'],
+    descripcion: ['descripcion', 'descripciondelnivel'],
+    avance: ['paraavanzar', 'avance', 'paraelsiguientenivel']
   };
   const ALIAS_HAB = {
     guia: ALIAS_GRAFO.guia,
@@ -133,6 +136,8 @@ const Grafo = (() => {
         nodo.rama = ramasFila[0];
         nodo.ramasSecundarias = ramasFila.slice(1);
       } else resumen.avisos.push(`${cod} no tiene subcategoría: conserva su rama.`);
+      if (celda(f, 'descripcion')) nodo.descripcion = celda(f, 'descripcion');
+      if (celda(f, 'avance')) nodo.avance = celda(f, 'avance');
       nodo.prerrequisitos = lista(celda(f, 'indispensable'));
       nodo.deseables = lista(celda(f, 'deseable')).filter(d => !nodo.prerrequisitos.includes(d));
       if (ub.col.herramienta !== undefined) nodo.herramientas = celda(f, 'herramienta').split(/[,;]+/).map(x => x.trim()).filter(Boolean);
@@ -226,7 +231,7 @@ const Grafo = (() => {
     const clasificadas = hojas.map(h => ({ ...h, tipo: tipoDeHoja(h.filas) }));
     const reconocidas = clasificadas.filter(h => h.tipo);
     if (!reconocidas.length) {
-      throw new Error('No reconozco ninguna hoja. El grafo necesita las columnas «' + CABECERA.join(', ')
+      throw new Error('No reconozco ninguna hoja. El grafo necesita las columnas «' + CABECERA.slice(0, 7).join(', ')
         + '», la hoja de habilidades «' + CABECERA_HAB.join(', ') + '» y la de categorías «' + CABECERA_CAT.join(', ') + '».');
     }
     reconocidas.filter(h => h.tipo === 'grafo').forEach(h => { aplicarGrafo(p, h.filas, resumen, ctx); resumen.hojas.push(`${h.nombre} (grafo)`); });
@@ -258,7 +263,9 @@ const Grafo = (() => {
         rama.get(n.rama) || '',
         rama.get(sec[0]) || '',
         sec.slice(1).map(r => rama.get(r)).filter(Boolean).join(', '),
-        (n.herramientas || []).join(', ')
+        (n.herramientas || []).join(', '),
+        n.descripcion || '',
+        n.avance || ''
       ];
     })];
   }
