@@ -1,13 +1,13 @@
 /*
  * Hoja: lectura de hojas de cálculo (.xlsx, .xltx, .xlsm, .csv) y escritura de
- * .xlsx sin librerías externas. Lee la primera hoja y devuelve una matriz de textos.
- * Usa DecompressionStream del navegador para descomprimir el archivo.
+ * .xlsx sin librerías externas. Devuelve todas las hojas como [{ nombre, filas }],
+ * donde filas es una matriz de textos. Usa DecompressionStream del navegador.
  */
 const Hoja = (() => {
   const TIPO_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
   async function leer(archivo) {
-    if (/\.(csv|txt|tsv)$/i.test(archivo.name)) return leerCSV(await archivo.text());
+    if (/\.(csv|txt|tsv)$/i.test(archivo.name)) return [{ nombre: archivo.name.replace(/\.[^.]+$/, ''), filas: leerCSV(await archivo.text()) }];
     return leerXLSX(new Uint8Array(await archivo.arrayBuffer()));
   }
 
@@ -80,17 +80,20 @@ const Hoja = (() => {
 
   async function leerXLSX(bytes) {
     const zip = await entradasZip(bytes);
-    let ruta = 'xl/worksheets/sheet1.xml';
+    const NS_R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+    let hojas = [{ nombre: 'Hoja1', ruta: 'xl/worksheets/sheet1.xml' }];
     const libro = await zip.texto('xl/workbook.xml');
     const rels = await zip.texto('xl/_rels/workbook.xml.rels');
     if (libro && rels) {
-      const hoja = xml(libro).getElementsByTagName('sheet')[0];
-      const rid = hoja && (hoja.getAttribute('r:id') || hoja.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id'));
-      const rel = [...xml(rels).getElementsByTagName('Relationship')].find(r => r.getAttribute('Id') === rid);
-      if (rel) {
+      const relaciones = [...xml(rels).getElementsByTagName('Relationship')];
+      const encontradas = [...xml(libro).getElementsByTagName('sheet')].map(h => {
+        const rid = h.getAttribute('r:id') || h.getAttributeNS(NS_R, 'id');
+        const rel = relaciones.find(r => r.getAttribute('Id') === rid);
+        if (!rel) return null;
         const destino = rel.getAttribute('Target').replace(/^\//, '');
-        ruta = destino.startsWith('xl/') ? destino : `xl/${destino}`;
-      }
+        return { nombre: h.getAttribute('name'), ruta: destino.startsWith('xl/') ? destino : `xl/${destino}` };
+      }).filter(Boolean);
+      if (encontradas.length) hojas = encontradas;
     }
     const compartidas = [];
     const ss = await zip.texto('xl/sharedStrings.xml');
@@ -99,8 +102,16 @@ const Hoja = (() => {
         compartidas.push([...si.getElementsByTagName('t')].map(t => t.textContent).join(''));
       });
     }
-    const hojaXml = await zip.texto(ruta);
-    if (!hojaXml) throw new Error('No encontré ninguna hoja dentro del archivo.');
+    const resultado = [];
+    for (const h of hojas) {
+      const hojaXml = await zip.texto(h.ruta);
+      if (hojaXml) resultado.push({ nombre: h.nombre, filas: filasDeHoja(hojaXml, compartidas) });
+    }
+    if (!resultado.length) throw new Error('No encontré ninguna hoja dentro del archivo.');
+    return resultado;
+  }
+
+  function filasDeHoja(hojaXml, compartidas) {
     const filas = [];
     [...xml(hojaXml).getElementsByTagName('row')].forEach(r => {
       const i = (+r.getAttribute('r') || filas.length + 1) - 1;
@@ -130,25 +141,39 @@ const Hoja = (() => {
   const escXml = s => String(s ?? '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
   const letra = j => { let s = ''; j++; while (j) { const r = (j - 1) % 26; s = String.fromCharCode(65 + r) + s; j = Math.floor((j - 1) / 26); } return s; };
 
-  function xlsx(filas, nombreHoja = 'Hoja1') {
+  /** hojas: [{ nombre, filas }] (o una sola matriz de filas). */
+  function xlsx(hojas, nombreHoja = 'Hoja1') {
+    if (Array.isArray(hojas) && (!hojas.length || Array.isArray(hojas[0]))) hojas = [{ nombre: nombreHoja, filas: hojas }];
+    const archivos = {};
+    hojas.forEach((h, k) => { archivos[`xl/worksheets/sheet${k + 1}.xml`] = xmlHoja(h.filas); });
+    return empaquetar(hojas, archivos);
+  }
+
+  function xmlHoja(filas) {
     const anchos = (filas[0] || []).map((_, j) => Math.min(60, Math.max(10, ...filas.map(f => String(f[j] ?? '').length + 2))));
     const hoja = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>${anchos.map((w, j) => `<col min="${j + 1}" max="${j + 1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${anchos.length ? `<cols>${anchos.map((w, j) => `<col min="${j + 1}" max="${j + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` : ''}<sheetData>${
   filas.map((f, i) => `<row r="${i + 1}">${f.map((v, j) => (v === '' || v === null || v === undefined ? ''
     : `<c r="${letra(j)}${i + 1}" t="inlineStr"${i === 0 ? ' s="1"' : ''}><is><t xml:space="preserve">${escXml(v)}</t></is></c>`)).join('')}</row>`).join('')
 }</sheetData></worksheet>`;
+    return hoja;
+  }
+
+  function empaquetar(hojas, hojasXml) {
+    const nombres = new Set();
+    const nombreUnico = n => { let x = escXml(String(n).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31)) || 'Hoja'; let k = 2; while (nombres.has(x)) x = `${x.slice(0, 28)} ${k++}`; nombres.add(x); return x; };
     const archivos = {
       '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${hojas.map((_, k) => `<Override PartName="/xl/worksheets/sheet${k + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
       '_rels/.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
       'xl/workbook.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${escXml(nombreHoja.slice(0, 31))}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${hojas.map((h, k) => `<sheet name="${nombreUnico(h.nombre)}" sheetId="${k + 1}" r:id="rId${k + 1}"/>`).join('')}</sheets></workbook>`,
       'xl/_rels/workbook.xml.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${hojas.map((_, k) => `<Relationship Id="rId${k + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${k + 1}.xml"/>`).join('')}<Relationship Id="rId${hojas.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
       'xl/styles.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF4F2B63"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
-      'xl/worksheets/sheet1.xml': hoja
+      ...hojasXml
     };
     const enc = new TextEncoder();
     const partes = [], central = [];

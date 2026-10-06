@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,800;6..12,900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/estilos.css">
-  <script src="vendor/d3.min.js"></script>
+  <script src="lib/d3.min.js"></script>
 </head>
 <body>
   <!-- Íconos de las ramas (trazo de línea, como en las guías BC) -->
@@ -43,22 +43,28 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
         <input id="buscar" type="search" placeholder="Buscar guía o habilidad…" autocomplete="off">
       </label>
+      <button type="button" id="btn-editar" class="boton boton-secundario" aria-pressed="false" title="Crear y editar ramas, niveles, guías y conexiones">✎ Diseñar</button>
       <button type="button" id="btn-estudiante" class="boton boton-secundario" aria-pressed="false">
         <span class="punto-juego"></span> Modo estudiante
       </button>
       <div class="menu">
         <button type="button" class="boton boton-secundario" id="btn-archivo" aria-haspopup="true" aria-expanded="false">Archivo ▾</button>
         <div class="menu-lista" id="menu-archivo" hidden>
+          <button type="button" data-accion="proyectos">Mis proyectos…</button>
+          <button type="button" data-accion="nuevo">Nuevo proyecto…</button>
+          <button type="button" data-accion="duplicar">Guardar una copia de este proyecto</button>
+          <hr>
+          <button type="button" data-accion="importar-hoja">Importar hoja de cálculo (.xlsx, .csv)…</button>
+          <button type="button" data-accion="exportar-hoja">Exportar a hoja de cálculo (.xlsx)</button>
+          <button type="button" data-accion="plantilla">Descargar plantilla vacía (.xlsx)</button>
+          <hr>
           <button type="button" data-accion="exportar-json">Guardar proyecto (.json)</button>
           <button type="button" data-accion="importar-json">Abrir proyecto (.json)…</button>
-          <hr>
-          <button type="button" data-accion="importar-grafo">Importar grafo de guías (.xlsx, .csv)…</button>
-          <button type="button" data-accion="exportar-grafo">Exportar grafo de guías (.xlsx)</button>
           <hr>
           <button type="button" data-accion="exportar-svg">Descargar imagen (.svg)</button>
           <button type="button" data-accion="exportar-png">Descargar imagen (.png)</button>
           <hr>
-          <button type="button" data-accion="restablecer">Volver a los datos de ejemplo</button>
+          <button type="button" data-accion="restablecer">Restablecer el proyecto de ejemplo</button>
         </div>
         <input type="file" id="archivo-json" accept=".json,application/json" hidden>
         <input type="file" id="archivo-hoja" accept=".xlsx,.xltx,.xlsm,.csv,.tsv" hidden>
@@ -125,18 +131,30 @@
         <div class="barra"><span id="progreso-barra"></span></div>
         <button type="button" class="enlace" id="reiniciar-progreso">Reiniciar</button>
       </div>
+      <div class="barra-edicion" id="barra-edicion" hidden>
+        <button type="button" class="boton" id="btn-nueva-guia">+ Nueva guía</button>
+        <button type="button" class="boton boton-secundario" id="btn-deshacer" disabled title="Deshacer (Ctrl+Z)">↶ Deshacer</button>
+        <span class="pista">Doble clic en un hueco para crear · arrastra entre guías para conectar (Mayús = deseable)</span>
+      </div>
+      <div class="lienzo-vacio" id="lienzo-vacio" hidden>
+        <h3>Tu árbol está vacío</h3>
+        <p>Activa <b>✎ Diseñar</b> y haz doble clic en un anillo para crear la primera guía, o usa <b>Archivo → Importar hoja de cálculo</b>.</p>
+      </div>
+      <div class="aviso" id="aviso" role="status" hidden></div>
       <div class="tooltip" id="tooltip" hidden></div>
     </section>
 
     <aside class="panel panel-der" aria-label="Detalle">
       <div class="pestanas" role="tablist">
         <button type="button" role="tab" data-pestana="detalle" class="activo">Detalle</button>
-        <button type="button" role="tab" data-pestana="trayectorias">Trayectorias</button>
+        <button type="button" role="tab" data-pestana="trayectorias" title="Trayectorias">Rutas</button>
         <button type="button" role="tab" data-pestana="diagnostico">Diagnóstico <span id="num-alertas" class="insignia-num"></span></button>
+        <button type="button" role="tab" data-pestana="estructura" hidden>Estructura</button>
       </div>
       <div class="contenido-pestana" data-contenido="detalle" id="detalle"></div>
       <div class="contenido-pestana" data-contenido="trayectorias" id="trayectorias" hidden></div>
       <div class="contenido-pestana" data-contenido="diagnostico" id="diagnostico" hidden></div>
+      <div class="contenido-pestana" data-contenido="estructura" id="estructura" hidden></div>
     </aside>
   </main>
 
@@ -144,6 +162,28 @@
     <h2 id="dialogo-titulo"></h2>
     <div id="dialogo-cuerpo"></div>
     <div class="botonera"><button type="button" class="boton" id="dialogo-cerrar">Entendido</button></div>
+  </dialog>
+
+  <dialog id="dialogo-nuevo" class="dialogo" aria-labelledby="nuevo-titulo">
+    <form class="formulario" method="dialog">
+      <h2 id="nuevo-titulo">Nuevo proyecto</h2>
+      <label>Título<input name="titulo" required placeholder="p. ej. Técnico en Desarrollo de Software"></label>
+      <label>Subtítulo<input name="subtitulo" placeholder="Opcional"></label>
+      <label>Autoría<input name="autoria" placeholder="Equipo o institución"></label>
+      <fieldset><legend>¿Qué estás diseñando?</legend>
+        <label class="opcion"><input type="radio" name="tipo" value="libro" checked> Libro de texto <small>(grados y guías)</small></label>
+        <label class="opcion"><input type="radio" name="tipo" value="curso"> Curso de formación profesional <small>(módulos y unidades)</small></label>
+      </fieldset>
+      <div class="dos-col">
+        <label>Niveles <small>(uno por línea, del primero al último)</small><textarea name="niveles" rows="6"></textarea></label>
+        <label>Ramas <small>(una por línea)</small><textarea name="ramas" rows="6"></textarea></label>
+      </div>
+      <p class="nota">Todo se puede cambiar después en la pestaña Estructura. El proyecto de ejemplo no se modifica.</p>
+      <div class="botonera">
+        <button type="button" class="boton boton-secundario" id="nuevo-cancelar">Cancelar</button>
+        <button type="submit" class="boton">Crear proyecto</button>
+      </div>
+    </form>
   </dialog>
 
   <footer class="pie">
@@ -155,6 +195,8 @@
   <script src="js/modelo.js"></script>
   <script src="js/hoja.js"></script>
   <script src="js/grafo.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/disenio.js"></script>
   <script src="js/vista.js"></script>
   <script src="js/app.js"></script>
 </body>

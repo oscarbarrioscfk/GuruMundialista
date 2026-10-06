@@ -74,13 +74,14 @@ flowchart LR
 Dos vías que conviven:
 - **Importar** la hoja del grafo que ya usa el equipo (Excel / CSV), una fila por guía:
   `Guía | Guía indispensable | Guía deseable | Subcategoría | Subcategoría 2 | Subcategoría 3 | Herramienta computacional`. ✅ Disponible.
-- *(Pendiente)* una segunda hoja con una fila por habilidad para cargar títulos y rangos N0/N1/N2.
-- **Editar en pantalla**: clic en un hueco del árbol → "Nuevo nodo" → formulario lateral.
+- Una segunda hoja **Habilidades**, una fila por habilidad: `Guía | Título | Habilidad | Nivel de dominio | Clave`. ✅ Disponible.
+- **Plantilla vacía** descargable con las dos hojas e instrucciones. ✅ Disponible.
+- **Editar en pantalla** (✎ Diseñar): doble clic en un hueco del árbol crea el nodo y abre su ficha editable. ✅ Disponible.
 
 ### Paso 4 · Conectar prerrequisitos
 - Fuente principal: el grafo del equipo (**indispensable** = bloquea, **deseable** = recomienda).
 - Lente complementaria: conexiones derivadas cuando una habilidad sube de rango (N0 → N1); la vista *Ambas* muestra dónde coinciden y dónde no.
-- *(Fase 2)* Arrastrar desde un nodo a otro para crear la conexión "A desbloquea B".
+- Arrastrar desde un nodo a otro para crear la conexión "A desbloquea B" (Mayús = deseable). ✅ Disponible.
 
 ### Paso 5 · Explorar con zoom semántico
 El nivel de detalle cambia con el zoom, como en un mapa:
@@ -149,6 +150,6 @@ sensación "juego": nodos que brillan al desbloquearse, conexiones animadas y ra
 ## 7. Fases de construcción
 
 1. ✅ **Visor**: modelo de datos, datos del póster, árbol radial y vista póster con zoom semántico, foco por rama, trayectorias, modo estudiante, diagnóstico y exportación (adelantados de la fase 3).
-2. **Editor**: crear/editar ramas, niveles, nodos y prerrequisitos; importar hoja de cálculo.
+2. ✅ **Editor**: proyectos propios, crear/editar ramas, niveles, nodos y prerrequisitos; hojas de grafo y habilidades; deshacer.
 3. **Calidad y salida**: alertas de diseño, exportación a SVG/PNG/PDF, visor de solo lectura.
 4. **Curso de FP**: plantilla y vocabulario propios, prueba con un curso real.

@@ -41,9 +41,10 @@ const Modelo = (() => {
   function validar(p) {
     const errores = [];
     if (!p || typeof p !== 'object') return ['El archivo no contiene un proyecto.'];
-    ['niveles', 'ramas', 'nodos'].forEach(k => {
+    ['niveles', 'ramas'].forEach(k => {
       if (!Array.isArray(p[k]) || !p[k].length) errores.push(`Falta la lista "${k}".`);
     });
+    if (!Array.isArray(p.nodos)) errores.push('Falta la lista "nodos".');
     if (errores.length) return errores;
     const niveles = new Set(p.niveles.map(n => n.id));
     const ramas = new Set(p.ramas.map(r => r.id));

@@ -98,6 +98,9 @@ const Vista = (() => {
     .hay-foco .nodo:not(.en-foco) { opacity: .12; }
     .hay-ruta .nodo:not(.en-ruta) { opacity: .14; }
 
+    .modo-edicion .nodo { cursor: crosshair; }
+    .linea-conexion { fill: none; stroke: ${C.morado}; stroke-width: 2.5; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; pointer-events: none; }
+    .nodo.destino-conexion .halo { stroke: ${C.azul}; opacity: .9; stroke-width: 7; }
     .modo-estudiante .nodo.estado-bloqueado { opacity: .38; filter: grayscale(1); }
     .modo-estudiante .nodo.estado-completado .cuerpo { fill: var(--c); }
     .modo-estudiante .nodo.estado-completado .codigo { fill: #fff; }
@@ -151,7 +154,7 @@ const Vista = (() => {
       });
     });
     const rMax = radio(nN - 1);
-    return { anchoRama, angRama, radio, rMax, rRotulo: rMax + DR * 0.5 + 120 };
+    return { anchoRama, angRama, radio, rMax, inicios, anchos, rRotulo: rMax + DR * 0.5 + 120 };
   }
 
   function lineasPoster(n) {
@@ -248,6 +251,11 @@ const Vista = (() => {
       });
     svg.call(zoom).on('dblclick.zoom', null);
     svg.on('click', e => { if (!e.target.closest('.nodo')) eventos.onFondo && eventos.onFondo(); });
+    svg.on('dblclick', e => {
+      if (!edicion || e.target.closest('.nodo')) return;
+      eventos.onDobleClic && eventos.onDobleClic(celdaEn(e.clientX, e.clientY));
+    });
+    let edicion = false;
     svg.classed('vista-radial', true);
 
     const pos = n => n._pos[vista];
@@ -263,6 +271,7 @@ const Vista = (() => {
       dibujarAristas();
       dibujarNodos();
       capaRuta.selectAll('*').remove();
+      aplicarArrastre();
       etiquetar();
     }
 
@@ -439,6 +448,60 @@ const Vista = (() => {
         o.append('circle').attr('r', 9);
         o.append('text');
       });
+    }
+
+    // ── Edición: arrastrar de una guía a otra para conectarlas ───
+    const nodoBajo = ev => {
+      const t = ev.changedTouches?.[0] || ev.touches?.[0] || ev;
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      const g = el && el.closest && el.closest('g.nodo');
+      return g ? g.getAttribute('data-id') : null;
+    };
+    function aplicarArrastre() {
+      if (!selNodos) return;
+      if (!edicion) { selNodos.on('.drag', null); return; }
+      let linea = null;
+      selNodos.call(d3.drag()
+        .filter(e => !e.button)
+        .on('start', () => { linea = capaRuta.append('path').attr('class', 'linea-conexion'); })
+        .on('drag', (e, n) => {
+          const p = pos(n), [x, y] = d3.pointer(e.sourceEvent, mundo.node());
+          linea.attr('d', `M${p.x},${p.y}L${x},${y}`);
+          const destino = nodoBajo(e.sourceEvent);
+          selNodos.classed('destino-conexion', d => d.id === destino && d.id !== n.id);
+        })
+        .on('end', (e, n) => {
+          if (linea) linea.remove();
+          selNodos.classed('destino-conexion', false);
+          const destino = nodoBajo(e.sourceEvent);
+          if (destino && destino !== n.id) eventos.onConectar && eventos.onConectar(n.id, destino, e.sourceEvent.shiftKey);
+        }));
+    }
+    function modoEdicion(activo) {
+      edicion = !!activo;
+      svg.classed('modo-edicion', edicion);
+      aplicarArrastre();
+    }
+
+    /** Celda (nivel y rama) bajo un punto de la pantalla, o null si cae fuera. */
+    function celdaEn(clientX, clientY) {
+      if (!m) return null;
+      const caja = svgEl.getBoundingClientRect();
+      const [x, y] = d3.zoomTransform(svgEl).invert([clientX - caja.left, clientY - caja.top]);
+      const { niveles, ramas } = m.proyecto;
+      if (vista === 'radial') {
+        const r = Math.hypot(x, y), j = Math.round((r - R0) / DR);
+        if (j < 0 || j >= niveles.length || Math.abs(r - geoR.radio(j)) > DR / 2) return null;
+        const ini = geoR.inicios[0];
+        let ang = Math.atan2(y, x);
+        while (ang < ini) ang += 2 * Math.PI;
+        while (ang >= ini + 2 * Math.PI) ang -= 2 * Math.PI;
+        const i = geoR.inicios.findIndex((a, k) => ang >= a && ang < a + geoR.anchos[k]);
+        return i < 0 ? null : { nivel: niveles[j].id, rama: ramas[i].id };
+      }
+      const j = Math.floor((x - COL_X0) / COL_W);
+      const f = geoP.filas.find(fl => y >= fl.y && y < fl.y + fl.alto);
+      return j < 0 || j >= niveles.length || !f ? null : { nivel: niveles[j].id, rama: f.rama.id };
     }
 
     // Coloca etiquetas por prioridad evitando solapes (en coordenadas de pantalla).
@@ -631,7 +694,7 @@ const Vista = (() => {
 
     return {
       dibujar, cambiarVista, seleccionar, filtrar, enfocarRama, mostrarRuta, aplicarEstudiante,
-      encuadrar, centrarEn, acercar, exportarSVG,
+      encuadrar, centrarEn, acercar, exportarSVG, modoEdicion, celdaEn,
       get vista() { return vista; }
     };
   }

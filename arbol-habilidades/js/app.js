@@ -2,35 +2,108 @@
  * App: estado, paneles y conexión entre el modelo y la vista.
  */
 (() => {
-  const CLAVE = 'arbolHabilidades.v2';
+  const CLAVE = 'arbolHabilidades.v3';
+  const CLAVE_V2 = 'arbolHabilidades.v2';
+  const ID_EJEMPLO = 'ejemplo-pc';
   const $ = sel => document.querySelector(sel);
   const $$ = sel => [...document.querySelectorAll(sel)];
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const copia = o => JSON.parse(JSON.stringify(o));
 
   const estado = {
-    proyecto: null, completados: new Set(), rutasUsuario: [],
+    idProyecto: ID_EJEMPLO, proyecto: null, completados: new Set(), rutasUsuario: [], edicion: false, fichaLectura: false,
     seleccion: null, rutaActiva: null, foco: null, busqueda: '', estudiante: false, editandoRuta: null,
     fuente: 'equipo', matriz: 'todas',
     filtros: { herramientas: new Set(), rangos: new Set(), desde: 0, hasta: Infinity }
   };
   let m = null;
 
-  // ── Persistencia (solo en este navegador) ───────────────────────
-  function leerGuardado() {
+  // ── Persistencia (solo en este navegador, varios proyectos) ─────
+  let almacen = { actual: ID_EJEMPLO, proyectos: {} };
+  const entradaEjemplo = () => ({ proyecto: copia(window.PROYECTO_PC), completados: [], rutasUsuario: [], fuente: 'equipo', actualizado: Date.now() });
+  function leerAlmacen() {
     try {
       const datos = JSON.parse(localStorage.getItem(CLAVE) || 'null');
-      if (datos && !Modelo.validar(datos.proyecto).length) return datos;
+      if (datos && datos.proyectos) {
+        Object.entries(datos.proyectos).forEach(([id, e]) => { if (e && !Modelo.validar(e.proyecto).length) almacen.proyectos[id] = e; });
+        if (almacen.proyectos[datos.actual]) almacen.actual = datos.actual;
+      } else {
+        // Migración desde la versión anterior (un único proyecto)
+        const v2 = JSON.parse(localStorage.getItem(CLAVE_V2) || 'null');
+        if (v2 && !Modelo.validar(v2.proyecto).length) almacen.proyectos[ID_EJEMPLO] = { ...v2, actualizado: Date.now() };
+      }
     } catch (e) { /* almacenamiento no disponible o dañado */ }
-    return null;
+    if (!almacen.proyectos[ID_EJEMPLO]) almacen.proyectos[ID_EJEMPLO] = entradaEjemplo();
   }
   function guardar() {
-    try {
-      localStorage.setItem(CLAVE, JSON.stringify({
-        proyecto: estado.proyecto, completados: [...estado.completados], rutasUsuario: estado.rutasUsuario,
-        fuente: estado.fuente
-      }));
-    } catch (e) { /* sin almacenamiento: la sesión sigue funcionando */ }
+    almacen.actual = estado.idProyecto;
+    almacen.proyectos[estado.idProyecto] = {
+      proyecto: estado.proyecto, completados: [...estado.completados], rutasUsuario: estado.rutasUsuario,
+      fuente: estado.fuente, actualizado: Date.now()
+    };
+    try { localStorage.setItem(CLAVE, JSON.stringify(almacen)); } catch (e) { /* sin almacenamiento: la sesión sigue funcionando */ }
+  }
+  function abrirProyecto(id, { encuadrar = true } = {}) {
+    const e = almacen.proyectos[id];
+    if (!e) return;
+    estado.idProyecto = id;
+    estado.proyecto = e.proyecto;
+    estado.completados = new Set(e.completados || []);
+    estado.rutasUsuario = e.rutasUsuario || [];
+    estado.fuente = Modelo.FUENTES[e.fuente] ? e.fuente : 'equipo';
+    estado.seleccion = estado.rutaActiva = estado.foco = estado.editandoRuta = null;
+    estado.filtros = { herramientas: new Set(), rangos: new Set(), desde: 0, hasta: Infinity };
+    historial.length = 0;
+    guardar();
+    reconstruir({ encuadrar });
+  }
+  function crearProyecto(proyecto, extra = {}) {
+    const id = `p-${Date.now().toString(36)}`;
+    almacen.proyectos[id] = { proyecto, completados: [], rutasUsuario: [], fuente: 'equipo', ...extra, actualizado: Date.now() };
+    abrirProyecto(id);
+    return id;
+  }
+
+  // ── Historial (deshacer) ────────────────────────────────────────
+  const historial = [];
+  /**
+   * Aplica un cambio al proyecto. fn(proyecto) lo modifica; si devuelve false se descarta.
+   * opciones.formulario / opciones.estructura: volver a pintar esos paneles (por defecto sí).
+   */
+  function cambiar(fn, opciones = {}) {
+    const antes = JSON.stringify({ p: estado.proyecto, r: estado.rutasUsuario, s: estado.seleccion });
+    if (fn(estado.proyecto) === false) {
+      const previo = JSON.parse(antes);
+      estado.proyecto = previo.p; estado.rutasUsuario = previo.r; estado.seleccion = previo.s;
+      if (opciones.formulario !== false) renderDetalle();
+      return false;
+    }
+    historial.push(antes);
+    if (historial.length > 80) historial.shift();
+    guardar();
+    reconstruir({ encuadrar: false, detalle: opciones.formulario !== false, estructura: opciones.estructura !== false });
+    $('#btn-deshacer').disabled = false;
+    return true;
+  }
+  function deshacer() {
+    if (!historial.length) { aviso('No hay nada que deshacer.'); return; }
+    const previo = JSON.parse(historial.pop());
+    estado.proyecto = previo.p; estado.rutasUsuario = previo.r;
+    estado.seleccion = previo.s && previo.p.nodos.some(n => n.id === previo.s) ? previo.s : null;
+    guardar();
+    reconstruir({ encuadrar: false });
+    $('#btn-deshacer').disabled = !historial.length;
+    aviso('Cambio deshecho.');
+  }
+
+  let temporizadorAviso;
+  function aviso(texto, tipo = 'info') {
+    const el = $('#aviso');
+    el.textContent = texto;
+    el.className = `aviso aviso-${tipo}`;
+    el.hidden = false;
+    clearTimeout(temporizadorAviso);
+    temporizadorAviso = setTimeout(() => { el.hidden = true; }, tipo === 'error' ? 4500 : 2600);
   }
 
   // ── Vista ───────────────────────────────────────────────────────
@@ -40,10 +113,27 @@
     onFondo: () => { if (!estado.editandoRuta) seleccionar(null); },
     onRama: id => enfocarRama(estado.foco === id ? null : id),
     onHover: (n, e) => mostrarTooltip(n, e),
-    onNivelZoom: nivel => $$('#indicador-zoom span').forEach(s => s.classList.toggle('activo', s.dataset.nivel === nivel))
+    onNivelZoom: nivel => $$('#indicador-zoom span').forEach(s => s.classList.toggle('activo', s.dataset.nivel === nivel)),
+    onDobleClic: celda => crearEnCelda(celda),
+    onConectar: (a, b, deseable) => {
+      let r = null;
+      cambiar(p => { r = Editor.conectar(p, a, b, deseable ? 'deseable' : 'indispensable'); if (typeof r === 'string') { aviso(r, 'error'); return false; } }, { formulario: true });
+      if (r && typeof r === 'object') aviso(`${r.origen} → ${r.destino} (${deseable ? 'deseable' : 'indispensable'}). Ctrl+Z para deshacer.`);
+    }
   });
 
-  function reconstruir({ encuadrar = true } = {}) {
+  function crearEnCelda(celda) {
+    if (!estado.edicion) return;
+    if (!celda) { aviso('Haz doble clic dentro de un anillo y una rama para crear ahí la guía.'); return; }
+    let nuevo = null;
+    cambiar(p => { nuevo = Editor.agregarNodo(p, celda); estado.seleccion = nuevo.id; });
+    activarPestana('detalle');
+    const t = $('#detalle [data-campo="titulo"]');
+    if (t) { t.focus(); t.select(); }
+    aviso(`${nuevo.codigo} creada. Escribe su título y sus habilidades.`);
+  }
+
+  function reconstruir({ encuadrar = true, detalle = true, estructura = true } = {}) {
     m = Modelo.preparar(estado.proyecto, { fuente: estado.fuente });
     $$('#filtro-fuente [data-fuente]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.fuente === estado.fuente)));
     estado.filtros.hasta = Math.min(estado.filtros.hasta, m.proyecto.niveles.length - 1);
@@ -55,7 +145,12 @@
     renderFiltros();
     renderTrayectorias();
     renderDiagnostico();
-    seleccionar(m.porId.has(estado.seleccion) ? estado.seleccion : null);
+    if (estado.edicion && estructura) Disenio.estructura($('#estructura'));
+    $('#lienzo-vacio').hidden = m.nodos.length > 0;
+    $('#btn-nueva-guia').textContent = `+ Nueva ${(m.proyecto.vocabulario?.nodo || 'guía').toLowerCase()}`;
+    const sel = m.porId.has(estado.seleccion) ? estado.seleccion : null;
+    if (detalle) seleccionar(sel, { pestana: false });
+    else { estado.seleccion = sel; vista.seleccionar(sel); }
     aplicarFiltros();
     aplicarEstudiante();
     if (estado.rutaActiva) vista.mostrarRuta(rutaPorId(estado.rutaActiva)?.nodos);
@@ -71,6 +166,7 @@
       renderTrayectorias();
       return;
     }
+    if (estado.edicion) { estado.fichaLectura = false; seleccionar(id); return; }
     if (estado.estudiante) {
       const est = Modelo.estado(m, id, estado.completados);
       if (est === 'completado') desmarcar(id);
@@ -87,16 +183,31 @@
     Modelo.recorrer(m, id, 'adelante').nodos.forEach(d => estado.completados.delete(d));
   }
 
-  function seleccionar(id) {
+  function seleccionar(id, { pestana = true } = {}) {
     estado.seleccion = id;
     vista.seleccionar(id);
     renderDetalle();
-    if (id) activarPestana('detalle');
+    if (id && pestana) activarPestana('detalle');
   }
 
   function renderDetalle() {
     const cont = $('#detalle');
     const id = estado.seleccion;
+    if (id && estado.edicion && !estado.fichaLectura) { Disenio.formulario(cont, id); return; }
+    if (!id && estado.edicion) {
+      cont.innerHTML = `
+        <div class="vacio">
+          <h3>Modo diseño</h3>
+          <ul>
+            <li><b>Doble clic</b> en un hueco del árbol (un anillo dentro de una rama) para crear una ${esc((m.proyecto.vocabulario?.nodo || 'guía').toLowerCase())} ahí.</li>
+            <li><b>Arrastra</b> de una ${esc((m.proyecto.vocabulario?.nodo || 'guía').toLowerCase())} a otra para conectarlas (indispensable). Con <b>Mayús</b>, deseable.</li>
+            <li><b>Clic</b> en un nodo para editar su ficha: título, rama, habilidades y prerrequisitos.</li>
+            <li>La pestaña <b>Estructura</b> define ramas, ${esc(Editor.plural((m.proyecto.vocabulario?.nivel || 'nivel').toLowerCase()))} y el nombre del proyecto.</li>
+            <li><b>Ctrl+Z</b> deshace el último cambio. Todo se guarda solo en este navegador.</li>
+          </ul>
+        </div>`;
+      return;
+    }
     if (!id) {
       cont.innerHTML = `
         <div class="vacio">
@@ -164,6 +275,7 @@
         <h4>Desbloquea (${desbloquea.length})</h4>
         ${grupos(desbloquea, 'destino', 'Ninguna guía posterior depende de esta.')}
         <p class="nota">${esc(NOTA_FUENTE[m.fuente])} Debajo de cada vínculo aparecen las habilidades que comparten.</p>
+        ${estado.edicion ? `<button type="button" class="boton" data-editar-ficha="${esc(n.id)}">✎ Editar</button>` : ''}
       </article>`;
   }
 
@@ -271,7 +383,7 @@
     $('#num-alertas').textContent = alertas.filter(a => a.gravedad !== 'baja').length || '';
     $('#diagnostico').innerHTML = `
       <div class="resumen">
-        <div><b>${guias.length}</b><span>${esc((m.proyecto.vocabulario?.nodo || 'nodo').toLowerCase())}s</span></div>
+        <div><b>${guias.length}</b><span>${esc(Editor.plural((m.proyecto.vocabulario?.nodo || 'nodo').toLowerCase()))}</span></div>
         <div><b>${habilidades.size}</b><span>habilidades</span></div>
         <div><b>${m.aristas.filter(a => a.tipo !== 'proyecto').length}</b><span>conexiones</span></div>
       </div>
@@ -313,9 +425,9 @@
     const total = m.nodos.length, hechos = [...estados.values()].filter(e => e === 'completado').length;
     const disponibles = [...estados.values()].filter(e => e === 'disponible').length;
     const habs = new Set(m.nodos.filter(n => estado.completados.has(n.id)).flatMap(n => n.habilidades.map(h => h._clave)));
-    $('#progreso-texto').textContent = `${hechos} de ${total} ${(m.proyecto.vocabulario?.nodo || 'nodo').toLowerCase()}s`;
+    $('#progreso-texto').textContent = `${hechos} de ${total} ${Editor.plural((m.proyecto.vocabulario?.nodo || 'nodo').toLowerCase())}`;
     $('#progreso-detalle').textContent = `${habs.size} habilidades · ${disponibles} disponibles`;
-    $('#progreso-barra').style.width = `${(100 * hechos / total).toFixed(1)}%`;
+    $("#progreso-barra").style.width = `${total ? (100 * hechos / total).toFixed(1) : 0}%`;
     if (estado.seleccion) renderDetalle();
   }
 
@@ -364,44 +476,90 @@
       const proyecto = datos.proyecto || datos;
       const errores = Modelo.validar(proyecto);
       if (errores.length) { alert('No se pudo abrir el proyecto:\n\n• ' + errores.join('\n• ')); return; }
-      estado.proyecto = proyecto;
-      estado.completados = new Set(datos.completados || []);
-      estado.rutasUsuario = datos.rutasUsuario || [];
-      if (Modelo.FUENTES[datos.fuente]) estado.fuente = datos.fuente;
-      estado.seleccion = estado.rutaActiva = estado.foco = null;
-      estado.filtros = { herramientas: new Set(), rangos: new Set(), desde: 0, hasta: Infinity };
-      guardar();
-      reconstruir();
+      crearProyecto(proyecto, {
+        completados: datos.completados || [], rutasUsuario: datos.rutasUsuario || [],
+        fuente: Modelo.FUENTES[datos.fuente] ? datos.fuente : 'equipo'
+      });
+      aviso(`«${proyecto.titulo}» abierto como proyecto nuevo.`);
     };
     lector.readAsText(archivo);
   }
 
-  async function importarGrafo(archivo) {
+  async function importarHoja(archivo) {
     let resultado;
     try {
-      resultado = Grafo.aplicar(estado.proyecto, await Hoja.leer(archivo));
+      resultado = Grafo.aplicarLibro(estado.proyecto, await Hoja.leer(archivo));
     } catch (e) {
       mostrarDialogo('No se pudo importar la hoja', `<p>${esc(e.message)}</p>`);
       return;
     }
     const errores = Modelo.validar(resultado.proyecto);
     if (errores.length) { mostrarDialogo('No se pudo importar la hoja', `<ul>${errores.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`); return; }
-    estado.proyecto = resultado.proyecto;
-    estado.fuente = 'equipo';
-    guardar();
-    reconstruir();
     const r = resultado.resumen;
+    const conGrafo = r.filasGrafo > 0;
+    cambiar(() => {
+      estado.proyecto = resultado.proyecto;
+      if (conGrafo) estado.fuente = 'equipo';
+    });
+    vista.encuadrar();
+    const pl = (n, uno, varios) => `<b>${n}</b> ${n === 1 ? uno : varios}`;
     const lista = (titulo, xs) => (xs.length ? `<h4>${titulo} (${xs.length})</h4><p>${xs.map(esc).join(', ')}</p>` : '');
-    mostrarDialogo('Grafo importado', `
-      <p><b>${r.filas}</b> filas leídas de «${esc(archivo.name)}»: <b>${r.actualizadas}</b> ${r.actualizadas === 1 ? 'guía actualizada' : 'guías actualizadas'} y <b>${r.nuevas.length}</b> ${r.nuevas.length === 1 ? 'nueva' : 'nuevas'}.</p>
-      ${lista('Cambian de eje principal', r.cambiosRama)}
-      ${lista('Guías nuevas (sin título ni habilidades todavía)', r.nuevas)}
+    const nodo = (m.proyecto.vocabulario?.nodo || 'guía').toLowerCase();
+    mostrarDialogo('Hoja importada', `
+      <p>De «${esc(archivo.name)}» se leyeron: ${r.hojas.map(esc).join(' · ')}.</p>
+      ${conGrafo ? `<p>Grafo: ${pl(r.filasGrafo, 'fila', 'filas')}, ${pl(r.actualizadas, `${nodo} actualizada`, `${Editor.plural(nodo)} actualizadas`)}.</p>` : ''}
+      ${r.guiasHabilidades || r.titulos ? `<p>Habilidades: ${pl(r.habilidades, 'habilidad', 'habilidades')} en ${pl(r.guiasHabilidades, nodo, Editor.plural(nodo))}; ${pl(r.titulos, 'título cambiado', 'títulos cambiados')}.</p>` : ''}
+      ${lista('Cambian de rama principal', r.cambiosRama)}
+      ${lista(`${nodo[0].toUpperCase()}${Editor.plural(nodo).slice(1)} nuevas`, r.nuevas)}
       ${lista('Ramas nuevas', r.ramasNuevas)}
       ${lista('Niveles nuevos', r.nivelesNuevos)}
       ${r.avisos.length ? `<h4>Avisos (${r.avisos.length})</h4><ul>${r.avisos.slice(0, 12).map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
-      <p class="nota">Las conexiones del árbol ahora siguen esta hoja. Revisa la pestaña Diagnóstico.</p>`);
+      <p class="nota">Si algo no quedó bien, Ctrl+Z deshace la importación completa.</p>`);
   }
 
+  function dialogoProyectos() {
+    const filas = Object.entries(almacen.proyectos).sort((a, b) => (a[0] === ID_EJEMPLO ? -1 : b[0] === ID_EJEMPLO ? 1 : b[1].actualizado - a[1].actualizado));
+    mostrarDialogo('Mis proyectos', `
+      <ul class="lista-proyectos">${filas.map(([id, e]) => `
+        <li class="${id === estado.idProyecto ? 'actual' : ''}">
+          <div><b>${esc(e.proyecto.titulo)}</b><span>${e.proyecto.nodos.length} ${esc(Editor.plural((e.proyecto.vocabulario?.nodo || 'nodo').toLowerCase()))} · ${e.proyecto.ramas.length} ramas${id === ID_EJEMPLO ? ' · ejemplo' : ''} · ${new Date(e.actualizado || Date.now()).toLocaleDateString('es')}</span></div>
+          ${id === estado.idProyecto ? '<em>Abierto</em>' : `<button type="button" class="boton boton-secundario" data-abrir-proyecto="${esc(id)}">Abrir</button>`}
+          ${id === ID_EJEMPLO ? '' : `<button type="button" class="enlace borrar" data-borrar-proyecto="${esc(id)}">Eliminar</button>`}
+        </li>`).join('')}
+      </ul>
+      <div class="botonera"><button type="button" class="boton" data-accion="nuevo">+ Nuevo proyecto</button></div>`);
+  }
+
+  function dialogoNuevo() {
+    const d = $('#dialogo-nuevo');
+    const f = d.querySelector('form');
+    f.reset();
+    f.dataset.tocado = '';
+    rellenarPlantilla(f, 'libro');
+    d.showModal ? d.showModal() : d.setAttribute('open', '');
+    f.querySelector('[name=titulo]').focus();
+  }
+  function rellenarPlantilla(f, tipo) {
+    const pl = Editor.PLANTILLAS[tipo];
+    if (!f.dataset.tocado.includes('niveles')) f.niveles.value = pl.niveles.join('\n');
+    if (!f.dataset.tocado.includes('ramas')) f.ramas.value = pl.ramas.join('\n');
+  }
+  function crearDesdeDialogo() {
+    const f = $('#dialogo-nuevo form');
+    const lineas = t => t.split(/\n+/).map(x => x.trim()).filter(Boolean);
+    const datos = { titulo: f.titulo.value.trim(), subtitulo: f.subtitulo.value.trim(), autoria: f.autoria.value.trim(), tipo: f.tipo.value, niveles: lineas(f.niveles.value), ramas: lineas(f.ramas.value) };
+    if (!datos.titulo) { f.titulo.focus(); return; }
+    if (!datos.niveles.length || !datos.ramas.length) { aviso('Escribe al menos un nivel y una rama.', 'error'); return; }
+    $('#dialogo-nuevo').close();
+    crearProyecto(Editor.nuevoProyecto(datos));
+    activarEdicion(true);
+    aviso(`«${datos.titulo}» creado. Doble clic en un anillo para crear la primera ${(Editor.PLANTILLAS[datos.tipo].vocabulario.nodo).toLowerCase()}.`);
+  }
+
+  function cerrarDialogo() {
+    const d = $('#dialogo');
+    if (d.open) (d.close ? d.close() : d.removeAttribute('open'));
+  }
   function mostrarDialogo(titulo, html) {
     const d = $('#dialogo');
     $('#dialogo-titulo').textContent = titulo;
@@ -419,15 +577,36 @@
     } else if (accion === 'importar-json') $('#archivo-json').click();
     else if (accion === 'exportar-svg') descargar(`${nombreBase()}-${vista.vista}.svg`, vista.exportarSVG().texto, 'image/svg+xml');
     else if (accion === 'exportar-png') exportarPNG();
-    else if (accion === 'importar-grafo') $('#archivo-hoja').click();
-    else if (accion === 'exportar-grafo') descargar(`${nombreBase()}-grafo.xlsx`, Hoja.xlsx(Grafo.filas(estado.proyecto), 'Grafo guías'));
-    else if (accion === 'restablecer' && confirm('¿Volver a los datos de ejemplo? Se perderán los cambios, el progreso y las trayectorias propias.')) {
-      estado.proyecto = copia(window.PROYECTO_PC);
-      estado.completados = new Set(); estado.rutasUsuario = [];
-      estado.seleccion = estado.rutaActiva = estado.foco = null;
-      guardar();
-      reconstruir();
+    else if (accion === 'importar-hoja') $('#archivo-hoja').click();
+    else if (accion === 'exportar-hoja') descargar(`${nombreBase()}.xlsx`, Hoja.xlsx(Grafo.libro(estado.proyecto)));
+    else if (accion === 'plantilla') descargar('plantilla-arbol-de-habilidades.xlsx', Hoja.xlsx(Grafo.plantilla()));
+    else if (accion === 'proyectos') dialogoProyectos();
+    else if (accion === 'nuevo') { cerrarDialogo(); dialogoNuevo(); }
+    else if (accion === 'duplicar') {
+      const p = copia(estado.proyecto);
+      p.titulo = `${p.titulo} (copia)`;
+      crearProyecto(p, { rutasUsuario: copia(estado.rutasUsuario), fuente: estado.fuente });
+      aviso(`Ahora trabajas en «${p.titulo}». El original queda intacto en Mis proyectos.`);
+    } else if (accion === 'restablecer' && confirm('¿Restablecer el proyecto de ejemplo de Pensamiento Computacional? Se perderán sus cambios, el progreso y sus trayectorias propias. Tus otros proyectos no se tocan.')) {
+      almacen.proyectos[ID_EJEMPLO] = entradaEjemplo();
+      abrirProyecto(ID_EJEMPLO);
     }
+  }
+
+  // ── Modo diseño ─────────────────────────────────────────────────
+  function activarEdicion(activo) {
+    estado.edicion = activo;
+    estado.fichaLectura = false;
+    if (activo && estado.estudiante) { estado.estudiante = false; aplicarEstudiante(); }
+    if (activo && estado.editandoRuta) { estado.editandoRuta = null; vista.mostrarRuta(null); }
+    $('#btn-editar').setAttribute('aria-pressed', String(activo));
+    $('#btn-estudiante').disabled = activo;
+    $('#barra-edicion').hidden = !activo;
+    $('[data-pestana="estructura"]').hidden = !activo;
+    vista.modoEdicion(activo);
+    if (activo) Disenio.estructura($('#estructura'));
+    else if ($('[data-pestana="estructura"]').classList.contains('activo')) activarPestana('detalle');
+    renderDetalle();
   }
 
   // ── Pestañas ────────────────────────────────────────────────────
@@ -508,8 +687,35 @@
     document.addEventListener('click', e => { if (!e.target.closest('.menu')) $('#menu-archivo').hidden = true; });
     $('#menu-archivo').addEventListener('click', e => { const b = e.target.closest('[data-accion]'); if (b) accionArchivo(b.dataset.accion); });
     $('#archivo-json').addEventListener('change', e => { if (e.target.files[0]) importar(e.target.files[0]); e.target.value = ''; });
-    $('#archivo-hoja').addEventListener('change', e => { if (e.target.files[0]) importarGrafo(e.target.files[0]); e.target.value = ''; });
-    $('#dialogo-cerrar').addEventListener('click', () => $('#dialogo').close ? $('#dialogo').close() : $('#dialogo').removeAttribute('open'));
+    $('#archivo-hoja').addEventListener('change', e => { if (e.target.files[0]) importarHoja(e.target.files[0]); e.target.value = ''; });
+    $('#dialogo-cerrar').addEventListener('click', cerrarDialogo);
+    $('#dialogo-cuerpo').addEventListener('click', e => {
+      const abrir = e.target.closest('[data-abrir-proyecto]'), borrar = e.target.closest('[data-borrar-proyecto]'), acc = e.target.closest('[data-accion]');
+      if (abrir) { cerrarDialogo(); abrirProyecto(abrir.dataset.abrirProyecto); aviso(`Proyecto «${estado.proyecto.titulo}» abierto.`); }
+      else if (borrar) {
+        const id = borrar.dataset.borrarProyecto, t = almacen.proyectos[id].proyecto.titulo;
+        if (!confirm(`¿Eliminar «${t}» de este navegador? No se puede deshacer. Si lo necesitas, guárdalo antes como .json.`)) return;
+        delete almacen.proyectos[id];
+        if (id === estado.idProyecto) abrirProyecto(ID_EJEMPLO); else guardar();
+        dialogoProyectos();
+      } else if (acc) accionArchivo(acc.dataset.accion);
+    });
+    const fNuevo = $('#dialogo-nuevo form');
+    fNuevo.addEventListener('input', e => { if (e.target.name === 'niveles' || e.target.name === 'ramas') fNuevo.dataset.tocado += ` ${e.target.name}`; });
+    fNuevo.addEventListener('change', e => { if (e.target.name === 'tipo') rellenarPlantilla(fNuevo, e.target.value); });
+    fNuevo.addEventListener('submit', e => { e.preventDefault(); crearDesdeDialogo(); });
+    $('#nuevo-cancelar').addEventListener('click', () => $('#dialogo-nuevo').close());
+    $('#btn-editar').addEventListener('click', () => activarEdicion(!estado.edicion));
+    $('#btn-deshacer').addEventListener('click', deshacer);
+    $('#btn-nueva-guia').addEventListener('click', () => {
+      const nivel = m.porId.get(estado.seleccion)?.nivel || m.proyecto.niveles[0].id;
+      const rama = m.porId.get(estado.seleccion)?.rama || m.proyecto.ramas[0].id;
+      crearEnCelda({ nivel, rama });
+    });
+    $('#detalle').addEventListener('click', e => {
+      const b = e.target.closest('[data-editar-ficha]');
+      if (b) { estado.fichaLectura = false; renderDetalle(); }
+    });
     $('#filtro-fuente').addEventListener('click', e => {
       const b = e.target.closest('[data-fuente]');
       if (!b || b.dataset.fuente === estado.fuente) return;
@@ -571,7 +777,9 @@
     });
 
     document.addEventListener('keydown', e => {
-      if (e.key !== 'Escape' || e.target.matches('input')) return;
+      const enCampo = e.target.matches('input, textarea, select');
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && estado.edicion && !enCampo) { e.preventDefault(); deshacer(); return; }
+      if (e.key !== 'Escape' || enCampo) return;
       seleccionar(null); enfocarRama(null);
       if (estado.rutaActiva) activarRuta(estado.rutaActiva);
     });
@@ -580,11 +788,12 @@
   }
 
   // ── Inicio ──────────────────────────────────────────────────────
-  const guardado = leerGuardado();
-  estado.proyecto = guardado ? guardado.proyecto : copia(window.PROYECTO_PC);
-  estado.completados = new Set(guardado?.completados || []);
-  estado.rutasUsuario = guardado?.rutasUsuario || [];
-  if (Modelo.FUENTES[guardado?.fuente]) estado.fuente = guardado.fuente;
+  leerAlmacen();
   enlazar();
-  reconstruir();
+  Disenio.iniciar({
+    estado, esc, cambiar, aviso,
+    get proyecto() { return estado.proyecto; },
+    verFicha: () => { estado.fichaLectura = true; renderDetalle(); }
+  });
+  abrirProyecto(almacen.actual);
 })();
