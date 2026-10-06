@@ -13,7 +13,7 @@
   const estado = {
     idProyecto: ID_EJEMPLO, proyecto: null, completados: new Set(), rutasUsuario: [], edicion: false, fichaLectura: false,
     seleccion: null, rutaActiva: null, foco: null, busqueda: '', estudiante: false, editandoRuta: null,
-    fuente: 'equipo', matriz: 'todas',
+    fuente: 'equipo', matriz: 'todas', capas: null,
     filtros: { herramientas: new Set(), rangos: new Set(), desde: 0, hasta: Infinity }
   };
   let m = null;
@@ -59,7 +59,7 @@
     almacen.actual = estado.idProyecto;
     almacen.proyectos[estado.idProyecto] = {
       proyecto: estado.proyecto, completados: [...estado.completados], rutasUsuario: estado.rutasUsuario,
-      fuente: estado.fuente, actualizado: Date.now()
+      fuente: estado.fuente, capas: estado.capas, actualizado: Date.now()
     };
     try { localStorage.setItem(CLAVE, JSON.stringify(almacen)); } catch (e) { /* sin almacenamiento: la sesión sigue funcionando */ }
   }
@@ -71,6 +71,8 @@
     estado.completados = new Set(e.completados || []);
     estado.rutasUsuario = e.rutasUsuario || [];
     estado.fuente = Modelo.FUENTES[e.fuente] ? e.fuente : 'equipo';
+    estado.capas = { ...CAPAS_COMPLETAS, ...(e.capas || {}) };
+    vista.establecerCapas(estado.capas);
     estado.seleccion = estado.rutaActiva = estado.foco = estado.editandoRuta = null;
     estado.filtros = { herramientas: new Set(), rangos: new Set(), desde: 0, hasta: Infinity };
     historial.length = 0;
@@ -82,6 +84,47 @@
     almacen.proyectos[id] = { proyecto, completados: [], rutasUsuario: [], fuente: 'equipo', ...extra, actualizado: Date.now() };
     abrirProyecto(id);
     return id;
+  }
+
+  // ── Capas de la vista: de lo más simple a lo más complejo ───────
+  const CAPAS_COMPLETAS = { conexiones: true, secundarias: true, proyectos: true, categorias: true, perfiles: true };
+  const NIVELES_VISTA = [
+    { id: 1, nombre: 'Ramas', ayuda: 'Solo ramas y guías', capas: { conexiones: false, secundarias: false, proyectos: false, categorias: false, perfiles: false } },
+    { id: 2, nombre: 'Conexiones', ayuda: 'Más prerrequisitos y proyectos', capas: { conexiones: true, secundarias: false, proyectos: true, categorias: false, perfiles: false } },
+    { id: 3, nombre: 'Categorías', ayuda: 'Más agrupación y ejes secundarios', capas: { conexiones: true, secundarias: true, proyectos: true, categorias: true, perfiles: false } },
+    { id: 4, nombre: 'Perfiles', ayuda: 'Vista completa', capas: { ...CAPAS_COMPLETAS } }
+  ];
+  const CAPAS_NOMBRE = [
+    ['conexiones', 'Conexiones', 'Prerrequisitos entre guías (al hacer clic en una guía siempre se ven los suyos)'],
+    ['proyectos', 'Proyectos', 'Nodos de evaluación y proyectos integradores'],
+    ['secundarias', 'Ejes secundarios', 'Puntos de color con las otras ramas de cada guía'],
+    ['categorias', 'Categorías', 'Agrupa las ramas en categorías'],
+    ['perfiles', 'Perfiles', 'La persona hacia la que crece cada categoría']
+  ];
+
+  function renderCapas() {
+    const tieneCat = m.categorias.length > 0;
+    const efectivas = { ...estado.capas, perfiles: estado.capas.perfiles && estado.capas.categorias };
+    // Sin categorías en el proyecto, solo cuentan las capas que sí existen.
+    const cuenta = k => tieneCat || (k !== 'categorias' && k !== 'perfiles');
+    const nivel = NIVELES_VISTA.find(n => Object.keys(CAPAS_COMPLETAS).every(k => !cuenta(k) || !!n.capas[k] === !!efectivas[k]));
+    $('#niveles-vista').innerHTML = NIVELES_VISTA.filter(n => tieneCat || n.id <= 2).map(n => `
+      <button type="button" data-nivel-vista="${n.id}" class="${nivel && nivel.id === n.id ? 'activo' : ''}" title="${esc(n.ayuda)}">
+        <b>${n.id}</b><span>${esc(n.nombre)}</span></button>`).join('');
+    $('#capas-vista').innerHTML = CAPAS_NOMBRE.map(([k, nombre, ayuda]) => {
+      const deshabilitada = (k === 'categorias' || k === 'perfiles') && !tieneCat || (k === 'perfiles' && !estado.capas.categorias);
+      const activa = !!efectivas[k] && !deshabilitada;
+      return `<button type="button" class="chip capa" data-capa="${k}" aria-pressed="${activa}" ${deshabilitada ? 'disabled' : ''} title="${esc(deshabilitada && !tieneCat ? 'Este proyecto no tiene categorías (se crean en Diseñar → Estructura)' : ayuda)}">${esc(nombre)}</button>`;
+    }).join('');
+    $('#nota-vista').textContent = nivel ? NIVELES_VISTA.find(n => n.id === nivel.id).ayuda : 'Vista personalizada';
+  }
+  function aplicarCapas(nuevas) {
+    estado.capas = { ...estado.capas, ...nuevas };
+    if (!estado.capas.categorias) estado.capas.perfiles = false;
+    vista.establecerCapas(estado.capas);
+    guardar();
+    reconstruir({ encuadrar: false });
+    vista.encuadrar(null, 600);
   }
 
   // ── Historial (deshacer) ────────────────────────────────────────
@@ -162,6 +205,7 @@
     $('#titulo-proyecto').textContent = `${m.proyecto.titulo} · ${m.proyecto.subtitulo || ''}`.replace(/ · $/, '');
     $('#autoria').textContent = m.proyecto.autoria || '';
     renderRamas();
+    renderCapas();
     renderFiltros();
     renderTrayectorias();
     renderDiagnostico();
@@ -322,8 +366,8 @@
         ${insigniaHTML(r)}<span>${esc(r.corto)}</span><span class="conteo">${n}</span></button></li>`;
     };
     const orden = m.ordenRamas;
-    const grupos = m.categorias.map(c => ({ c, idx: orden.filter(i => m.proyecto.ramas[i].categoria === c.id) })).filter(g => g.idx.length);
-    const sueltas = orden.filter(i => !m.catIdx.has(m.proyecto.ramas[i].categoria));
+    const grupos = (estado.capas.categorias ? m.categorias : []).map(c => ({ c, idx: orden.filter(i => m.proyecto.ramas[i].categoria === c.id) })).filter(g => g.idx.length);
+    const sueltas = orden.filter(i => !estado.capas.categorias || !m.catIdx.has(m.proyecto.ramas[i].categoria));
     $('#lista-ramas').innerHTML = grupos.map(({ c, idx }) => `
       <li class="grupo-categoria" style="--tinte:${esc(c.tinte || '#EEF2F8')};--c:${esc(c.color || '#4F2B63')}">
         <button type="button" class="cabecera-categoria ${estado.foco === `cat:${c.id}` ? 'activo' : ''}" data-rama="cat:${esc(c.id)}" title="${esc(c.nombre)}">
@@ -748,6 +792,16 @@
     $('#detalle').addEventListener('click', e => {
       const b = e.target.closest('[data-editar-ficha]');
       if (b) { estado.fichaLectura = false; renderDetalle(); }
+    });
+    $('#niveles-vista').addEventListener('click', e => {
+      const b = e.target.closest('[data-nivel-vista]');
+      if (b) aplicarCapas(NIVELES_VISTA.find(n => n.id === +b.dataset.nivelVista).capas);
+    });
+    $('#capas-vista').addEventListener('click', e => {
+      const b = e.target.closest('[data-capa]');
+      if (!b || b.disabled) return;
+      const k = b.dataset.capa, valor = !(b.getAttribute('aria-pressed') === 'true');
+      aplicarCapas(k === 'perfiles' && valor ? { perfiles: true, categorias: true } : { [k]: valor });
     });
     $('#filtro-fuente').addEventListener('click', e => {
       const b = e.target.closest('[data-fuente]');
