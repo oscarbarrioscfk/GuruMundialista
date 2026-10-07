@@ -497,4 +497,113 @@
     n.deseables = g.d;
     n.herramientas = g.h;
   });
+
+  /*
+   * Progresión por nivel de aprendizaje (independiente del grado).
+   * En el pilotaje, los/las docentes eligieron las guías según lo que ya sabían sus
+   * estudiantes y no según su grado (la más usada fue la 5.1, la entrada a la
+   * micro:bit). Esta segunda forma de leer el árbol ubica cada guía en uno de
+   * cinco niveles de profundidad, agrupados en tres momentos: lo básico, la
+   * práctica y la apropiación. Se asignó con el grafo del equipo (prerrequisitos
+   * indispensables), el nivel de dominio de las habilidades (N0/N1/N2) y lo que
+   * hacen los estudiantes en cada guía. El grado queda como referencia.
+   */
+  window.PROYECTO_PC.aprendizaje = {
+    nombre: 'Nivel de aprendizaje',
+    descripcion: 'Dónde están tus estudiantes en cada rama, más allá del grado.',
+    niveles: [
+      { id: 'n1', nombre: '1 · Exploración', corto: '1', bloque: 'Lo básico',
+        descripcion: 'Reconocen ideas del pensamiento computacional en su entorno: siguen instrucciones, encuentran patrones, clasifican e identifican tecnologías. No necesitan conocimientos previos.' },
+      { id: 'n2', nombre: '2 · Fundamentos', corto: '2', bloque: 'Lo básico',
+        descripcion: 'Tienen su primer encuentro guiado con un concepto clave o una herramienta (ScratchJr, Scratch, micro:bit, hojas de cálculo, simuladores): descomponen, crean secuencias y programan lo básico. Aquí están las puertas de entrada a cada herramienta.' },
+      { id: 'n3', nombre: '3 · Práctica', corto: '3', bloque: 'Práctica',
+        descripcion: 'Usan con autonomía lo que ya conocen y lo combinan: condicionales, bucles, variables, sensores, datos y simulación (habilidades en N1).' },
+      { id: 'n4', nombre: '4 · Profundización', corto: '4', bloque: 'Práctica',
+        descripcion: 'Dominan conceptos y pasan a herramientas más potentes: arreglos, funciones, pines y sensores, Python y análisis de datos (habilidades en N2), en problemas más abiertos.' },
+      { id: 'n5', nombre: '5 · Apropiación', corto: '5', bloque: 'Apropiación',
+        descripcion: 'Integran y transfieren lo aprendido: crean soluciones completas, analizan críticamente los datos y la IA, y llevan el pensamiento computacional a otros contextos. Incluye los proyectos integradores.' }
+    ]
+  };
+  const NIVEL_APRENDIZAJE = {
+    // Algoritmos, patrones, abstracción y descomposición
+    'T.1': ['n1', 'Sigue instrucciones y clasifica por características, sin conocimientos previos.'],
+    'T.2': ['n1', 'Reconoce patrones y compara cantidades en situaciones cotidianas.'],
+    'T.3': ['n1', 'Sigue instrucciones y compara similitudes y diferencias para resolver un reto sencillo.'],
+    '1.1': ['n1', 'Identifica pasos en las rutinas diarias y sigue instrucciones en tarjetas: entrada a los algoritmos.'],
+    'T.4': ['n2', 'Pasa de reconocer patrones a crear secuencias propias.'],
+    'T.5': ['n2', 'Usa un lenguaje de flechas para dar instrucciones de movimiento: antesala de la programación.'],
+    '1.2': ['n2', 'Encuentra la regla de un patrón y continúa secuencias con dos características.'],
+    '1.3': ['n2', 'Usa un lenguaje de flechas y programa un robot tipo Bee-bot.'],
+    '2.1': ['n2', 'Descompone una actividad en pasos y encuentra errores: fundamentos de la descomposición y la depuración.'],
+    '2.2': ['n2', 'Primer encuentro con la programación en bloques (ScratchJr, N0).'],
+    '3.1': ['n2', 'Entrada a Scratch: no requiere guías previas; venir de ScratchJr ayuda, pero no es indispensable.'],
+    '5.1': ['n2', 'Entrada a la micro:bit y MakeCode (N0): no requiere guías previas. En el pilotaje fue la guía más usada para empezar.'],
+    '3.2': ['n3', 'Usa Scratch y su editor con autonomía para crear (N1).'],
+    '3.4': ['n3', 'Programa escenarios y animaciones en Scratch para contar historias (N1).'],
+    '4.1': ['n3', 'Programa secuencias y patrones en Scratch (N1).'],
+    '4.3': ['n3', 'Usa variables y operaciones en Scratch para resolver varios problemas con un mismo algoritmo (N1).'],
+    '5.3': ['n3', 'Combina la micro:bit con condicionales (N1).'],
+    '6.1': ['n3', 'Usa condicionales, aleatoriedad y bucles en la micro:bit (N1).'],
+    '4.4': ['n4', 'Domina bucles y condicionales en Scratch (N2).'],
+    // Lógica, programación y depuración
+    '2.4': ['n3', 'Programa historias en ScratchJr con autonomía y corrige sus programas (N1).'],
+    '6.2': ['n3', 'Aplica Scratch a una simulación e introduce las funciones (N1).'],
+    '6.4': ['n3', 'Usa condicionales y lógica booleana (N1).'],
+    '9.4': ['n3', 'Entrada a Python: lleva a texto los condicionales, bucles y variables que ya conocen en bloques. Venir de Scratch (7.1) ayuda.'],
+    '7.1': ['n4', 'Domina los condicionales en Scratch (N2) y combina lo de 6.2 y 6.4.'],
+    '7.2': ['n4', 'Pasa a los arreglos y domina las variables (N2) con entradas, salidas y sensores.'],
+    '8.1': ['n4', 'Combina funciones, arreglos y condicionales en MakeCode: conceptos avanzados.'],
+    '8.2': ['n4', 'Trabaja arreglos, grafos y funciones, e introduce el sistema binario.'],
+    '8.3': ['n4', 'Domina entradas y salidas, y pines analógicos y digitales (N2).'],
+    '9.5': ['n4', 'Domina la algorítmica y las variables en Python (N2).'],
+    '10.2': ['n4', 'Usa listas (arreglos) en Python (N1).'],
+    '10.5': ['n4', 'Define funciones en Python.'],
+    '11.3': ['n5', 'Integra Python y Tinkercad para diseñar una solución completa.'],
+    // Prácticas de datos
+    '1.4': ['n1', 'Clasifica objetos y los organiza en tablas sencillas.'],
+    '2.3': ['n2', 'Construye tablas, pictogramas y gráficas, e interpreta gráficas de barras.'],
+    '3.3': ['n2', 'Clasifica con criterios y de forma binaria: fundamentos de la organización de datos.'],
+    '4.2': ['n2', 'Registra datos por primera vez con los sensores del celular (N0).'],
+    '7.4': ['n2', 'Entrada a las hojas de cálculo (N0).'],
+    '5.2': ['n3', 'Conecta la micro:bit y la usa con condicionales (N1).'],
+    '6.3': ['n3', 'Usa variables, sensores y pines de la micro:bit.'],
+    '7.3': ['n4', 'Simula con bucles, aleatoriedad, funciones y radio en MakeCode.'],
+    '9.2': ['n4', 'Domina la visualización y analiza sesgos en los datos (N2).'],
+    '10.1': ['n4', 'Domina las hojas de cálculo (N2) para simular a partir de expresiones matemáticas.'],
+    '10.4': ['n4', 'Recolecta datos con sensores (Phyphox) para analizarlos.'],
+    '11.2': ['n5', 'Analiza datos reales de forma crítica: limitaciones y sesgos (N2).'],
+    '11.4': ['n5', 'Integra pines, sensores, actuadores y realimentación (N2) en un sistema que responde al entorno.'],
+    // Modelación y simulación
+    '8.4': ['n2', 'Entrada a los simuladores de ciencias (PhET).'],
+    '11.5': ['n2', 'Usa simuladores PhET (N0) para indagar en ciencias.'],
+    '9.3': ['n3', 'Modela y simula la naturaleza con simuladores y fuentes en línea (N1).'],
+    // Computación física
+    '9.1': ['n4', 'Domina MakeCode (N2) y combina radio, condicionales y funciones en computación física.'],
+    // Inteligencia artificial
+    '5.5': ['n1', 'Reconoce características de las máquinas que aprenden: entrada a la IA.'],
+    '6.5': ['n2', 'Programa mecanismos básicos de aprendizaje e identifica sesgos.'],
+    '7.5': ['n3', 'Entrena modelos con Teachable Machine y reflexiona sobre su uso responsable.'],
+    '8.5': ['n4', 'Compara los algoritmos de IA con la programación, usando arreglos y operadores booleanos.'],
+    '11.1': ['n5', 'Analiza críticamente la IA generativa: implicaciones, limitaciones y roles de género.'],
+    // Seguridad en el mundo digital
+    '1.5': ['n1', 'Reconoce las tecnologías digitales a su alrededor y su uso adecuado.'],
+    '2.5': ['n2', 'Reflexiona sobre el impacto de las pantallas en su vida.'],
+    '3.5': ['n3', 'Pone en práctica acciones de privacidad y seguridad.'],
+    '4.5': ['n3', 'Protege su información personal y reconoce imágenes falsas.'],
+    '5.4': ['n4', 'Diseña estrategias para prevenir el phishing.'],
+    // Ética y confiabilidad de los datos
+    '10.3': ['n5', 'Usa la visualización de datos para analizar brechas de género y estereotipos.']
+  };
+  const nivelesA = window.PROYECTO_PC.aprendizaje.niveles.map(x => x.id);
+  const porIdPC = new Map(window.PROYECTO_PC.nodos.map(n => [n.id, n]));
+  window.PROYECTO_PC.nodos.filter(n => n.tipo !== 'proyecto').forEach(n => {
+    const a = NIVEL_APRENDIZAJE[n.id];
+    if (a) { n.aprendizaje = a[0]; n.motivoAprendizaje = a[1]; }
+  });
+  // Los proyectos integradores quedan un nivel por encima de lo que integran.
+  window.PROYECTO_PC.nodos.filter(n => n.tipo === 'proyecto').forEach(n => {
+    const maximo = Math.max(...n.prerrequisitos.map(id => nivelesA.indexOf(porIdPC.get(id)?.aprendizaje)));
+    n.aprendizaje = nivelesA[Math.min(nivelesA.length - 1, maximo + 1)];
+    n.motivoAprendizaje = `Integra lo trabajado en ${n.prerrequisitos.slice().sort((a, b) => a.localeCompare(b, 'es', { numeric: true })).join(', ')}.`;
+  });
 })();

@@ -63,6 +63,14 @@ const Disenio = (() => {
           <label>${esc(vocab.nivel || 'Nivel')}<select data-campo="nivel">${opciones(p.niveles, n.nivel, x => x.nombre)}</select></label>
           <label>Rama principal<select data-campo="rama">${opciones(p.ramas, n.rama, x => x.corto)}</select></label>
         </div>
+        ${p.aprendizaje?.niveles?.length ? `
+        <div class="dos-col">
+          <label>${esc(p.aprendizaje.nombre || 'Nivel de aprendizaje')}<select data-campo="aprendizaje">
+            <option value="">Sin asignar</option>
+            ${opciones(p.aprendizaje.niveles, n.aprendizaje, x => x.nombre)}
+          </select></label>
+          <label>Por qué en este nivel<textarea data-campo="motivoAprendizaje" rows="2">${esc(n.motivoAprendizaje || '')}</textarea></label>
+        </div>` : ''}
         <fieldset><legend>Ramas secundarias</legend><div class="chips">
           ${p.ramas.filter(r => r.id !== n.rama).map(r => `<button type="button" class="chip" data-secundaria="${esc(r.id)}" aria-pressed="${(n.ramasSecundarias || []).includes(r.id)}" style="--c:${r.color}">${esc(r.corto)}</button>`).join('')}
         </div></fieldset>
@@ -129,7 +137,7 @@ const Disenio = (() => {
             const n = p.nodos.find(x => x.id === id);
             if (campo === 'herramientas') n.herramientas = listaTexto(valor);
             else if (campo === 'titulo') n.titulo = valor.trim() || n.titulo;
-            else if (campo === 'descripcion' || campo === 'avance') { if (valor.trim()) n[campo] = valor.trim(); else delete n[campo]; }
+            else if (['descripcion', 'avance', 'aprendizaje', 'motivoAprendizaje'].includes(campo)) { if (valor.trim()) n[campo] = valor.trim(); else delete n[campo]; }
             else if (campo === 'rama') { n.rama = valor; n.ramasSecundarias = (n.ramasSecundarias || []).filter(r => r !== valor); }
             else n[campo] = valor;
           }, { formulario: campo === 'rama' || campo === 'tipo' });
@@ -271,6 +279,24 @@ const Disenio = (() => {
         </div>
         <button type="button" class="enlace" data-accion-est="agregar-nivel">+ Añadir ${esc((vocab.nivel || 'nivel').toLowerCase())}</button>
         <p class="nota">Los ${esc(Editor.plural((vocab.nivel || 'nivel').toLowerCase()))} se ordenan del centro hacia afuera en el árbol radial. El número antes del punto es el prefijo de los códigos (p. ej. ${esc(p.niveles[0]?.id || '1')}.1).</p>
+
+        <h4>Niveles de aprendizaje${p.aprendizaje ? ` (${p.aprendizaje.niveles.length})` : ''}</h4>
+        ${p.aprendizaje ? `
+          <div class="lista-edicion">
+            ${p.aprendizaje.niveles.map(nv => `
+              <div class="fila-aprendizaje" data-apr-id="${esc(nv.id)}">
+                <div class="dos-col">
+                  <input data-apr-campo="nombre" value="${esc(nv.nombre)}" aria-label="Nombre">
+                  <input data-apr-campo="bloque" value="${esc(nv.bloque || '')}" aria-label="Momento" placeholder="Momento (p. ej. Lo básico)">
+                </div>
+                <textarea data-apr-campo="descripcion" rows="2" aria-label="Qué hacen los estudiantes">${esc(nv.descripcion || '')}</textarea>
+                <span class="uso">${p.nodos.filter(n => n.aprendizaje === nv.id).length} nodos</span>
+              </div>`).join('')}
+          </div>
+          <p class="nota">${p.nodos.filter(n => !p.aprendizaje.niveles.some(x => x.id === n.aprendizaje)).length} nodos sin nivel asignado. Asígnalo en la ficha de cada uno (✎ Editar) o en la columna «Nivel de aprendizaje» de la hoja de cálculo.</p>
+          <button type="button" class="enlace borrar" data-accion-est="quitar-aprendizaje">Quitar los niveles de aprendizaje</button>`
+        : `<p class="nota">Una segunda forma de ordenar los anillos: por lo que ya saben los estudiantes y no por el ${esc((vocab.nivel || 'nivel').toLowerCase())} en que se ubica cada nodo.</p>
+          <button type="button" class="enlace" data-accion-est="crear-aprendizaje">+ Añadir niveles de aprendizaje</button>`}
       </form>`;
   }
 
@@ -290,6 +316,9 @@ const Disenio = (() => {
       } else if (el.dataset.catCampo) {
         const id = el.closest('[data-cat-id]').dataset.catId;
         ctx.cambiar(p => { const c = p.categorias.find(x => x.id === id); c[el.dataset.catCampo] = el.value.trim() || c[el.dataset.catCampo]; }, { estructura: el.dataset.catCampo === 'tinte' });
+      } else if (el.dataset.aprCampo) {
+        const id = el.closest('[data-apr-id]').dataset.aprId;
+        ctx.cambiar(p => { const nv = p.aprendizaje.niveles.find(x => x.id === id); nv[el.dataset.aprCampo] = el.value.trim() || (el.dataset.aprCampo === 'nombre' ? nv.nombre : ''); }, { estructura: false });
       } else if (el.dataset.nivelCampo) {
         const id = el.closest('[data-nivel-id]').dataset.nivelId;
         ctx.cambiar(p => { const nv = p.niveles.find(x => x.id === id); nv[el.dataset.nivelCampo] = el.value.trim() || nv[el.dataset.nivelCampo]; }, { estructura: false });
@@ -312,6 +341,11 @@ const Disenio = (() => {
       if (b.hasAttribute('data-eliminar-cat')) {
         if (!confirm('¿Eliminar esta categoría? Sus ramas quedan sin categoría (no se borran).')) return;
         ctx.cambiar(p => { Editor.eliminarCategoria(p, cat); }); return;
+      }
+      if (b.dataset.accionEst === 'crear-aprendizaje') { ctx.cambiar(p => { Editor.crearAprendizaje(p); }); ctx.aviso('Niveles de aprendizaje creados. Asígnalos en la ficha de cada nodo.'); return; }
+      if (b.dataset.accionEst === 'quitar-aprendizaje') {
+        if (!confirm('¿Quitar los niveles de aprendizaje y su asignación en todos los nodos? Puedes deshacer con Ctrl+Z.')) return;
+        ctx.cambiar(p => { Editor.quitarAprendizaje(p); }); return;
       }
       if (b.dataset.accionEst === 'agregar-rama') ctx.cambiar(p => { Editor.agregarRama(p); });
       else if (b.dataset.accionEst === 'agregar-nivel') ctx.cambiar(p => { Editor.agregarNivel(p); });

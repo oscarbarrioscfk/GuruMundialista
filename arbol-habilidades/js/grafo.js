@@ -3,8 +3,8 @@
  *
  * Hoja «Grafo guías» (una fila por guía, formato del Anexo 1):
  *   Guía · Guía indispensable · Guía deseable · Subcategoría · Subcategoría 2 ·
- *   Subcategoría 3 · Herramienta computacional · Descripción · Para avanzar
- *   (las dos últimas son opcionales)
+ *   Subcategoría 3 · Herramienta computacional · Descripción · Para avanzar ·
+ *   Nivel de aprendizaje · Por qué en este nivel   (las cuatro últimas son opcionales)
  * Hoja «Habilidades» (una fila por habilidad):
  *   Guía · Título · Habilidad · Nivel de dominio (N0/N1/N2) · Clave
  *
@@ -15,7 +15,7 @@
  * Un mismo archivo puede traer las tres hojas; se reconocen por sus columnas.
  */
 const Grafo = (() => {
-  const CABECERA = ['Guía', 'Guía indispensable', 'Guía deseable', 'Subcategoría', 'Subcategoría 2', 'Subcategoría 3', 'Herramienta computacional', 'Descripción', 'Para avanzar'];
+  const CABECERA = ['Guía', 'Guía indispensable', 'Guía deseable', 'Subcategoría', 'Subcategoría 2', 'Subcategoría 3', 'Herramienta computacional', 'Descripción', 'Para avanzar', 'Nivel de aprendizaje', 'Por qué en este nivel'];
   const CABECERA_HAB = ['Guía', 'Título', 'Habilidad', 'Nivel de dominio', 'Clave'];
   const CABECERA_CAT = ['Categoría principal', 'Subcategorías', 'Perfil'];
   const ALIAS_CAT = {
@@ -32,7 +32,9 @@ const Grafo = (() => {
     sub3: ['subcategoria3', 'eje3', 'rama3'],
     herramienta: ['herramientacomputacional', 'herramienta', 'herramientas'],
     descripcion: ['descripcion', 'descripciondelnivel'],
-    avance: ['paraavanzar', 'avance', 'paraelsiguientenivel']
+    avance: ['paraavanzar', 'avance', 'paraelsiguientenivel'],
+    aprendizaje: ['niveldeaprendizaje', 'aprendizaje', 'niveldeprofundidad'],
+    motivo: ['porqueenestenivel', 'motivodelnivel', 'motivo', 'justificacion']
   };
   const ALIAS_HAB = {
     guia: ALIAS_GRAFO.guia,
@@ -138,6 +140,15 @@ const Grafo = (() => {
       } else resumen.avisos.push(`${cod} no tiene subcategoría: conserva su rama.`);
       if (celda(f, 'descripcion')) nodo.descripcion = celda(f, 'descripcion');
       if (celda(f, 'avance')) nodo.avance = celda(f, 'avance');
+      if (celda(f, 'aprendizaje')) {
+        // Acepta el número (3), el id (n3) o el nombre («3 · Práctica» o «Práctica»).
+        if (!p.aprendizaje) { Editor.crearAprendizaje(p); resumen.avisos.push('Se crearon los niveles de aprendizaje a partir de la hoja.'); }
+        const v = clave(celda(f, 'aprendizaje'));
+        const nv = p.aprendizaje.niveles.find(x => [x.id, x.nombre, x.corto, x.nombre.replace(/^\s*\d+\s*·\s*/, '')].some(c => clave(c || '') === v));
+        if (nv) nodo.aprendizaje = nv.id;
+        else resumen.avisos.push(`${cod}: no reconozco el nivel de aprendizaje «${celda(f, 'aprendizaje')}».`);
+      }
+      if (celda(f, 'motivo')) nodo.motivoAprendizaje = celda(f, 'motivo');
       nodo.prerrequisitos = lista(celda(f, 'indispensable'));
       nodo.deseables = lista(celda(f, 'deseable')).filter(d => !nodo.prerrequisitos.includes(d));
       if (ub.col.herramienta !== undefined) nodo.herramientas = celda(f, 'herramienta').split(/[,;]+/).map(x => x.trim()).filter(Boolean);
@@ -265,7 +276,9 @@ const Grafo = (() => {
         sec.slice(1).map(r => rama.get(r)).filter(Boolean).join(', '),
         (n.herramientas || []).join(', '),
         n.descripcion || '',
-        n.avance || ''
+        n.avance || '',
+        proyecto.aprendizaje?.niveles?.find(x => x.id === n.aprendizaje)?.nombre || '',
+        n.motivoAprendizaje || ''
       ];
     })];
   }
