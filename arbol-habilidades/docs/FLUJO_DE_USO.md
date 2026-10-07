@@ -140,6 +140,7 @@ sensación "juego": nodos que brillan al desbloquearse, conexiones animadas y ra
 | Guardado (v1) | **Navegador + archivo JSON** para compartir |
 | Primer caso | **Libro de Pensamiento Computacional** con los datos del póster BC |
 | Fuente de verdad de las dependencias | **Anexo 1. Grafo guías** del equipo (ejes, herramientas, indispensables y deseables) |
+| Progresión por lo que saben | Además de los grados, **5 niveles de aprendizaje** (Exploración → Fundamentos → Práctica → Profundización → Apropiación) para elegir guías según los conocimientos previos; el grado queda como referencia |
 | Segundo caso | **Marco de Calidad**: árbol de habilidades institucionales (8 dimensiones × 8 niveles, criterios de M&E, perfil final por dimensión) |
 
 ## 6. Propuesta técnica

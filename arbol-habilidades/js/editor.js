@@ -167,12 +167,34 @@ const Editor = (() => {
   }
 
   /** Conecta origen → destino. El nodo de nivel anterior siempre queda como prerrequisito. */
-  function conectar(p, a, b, tipo = 'indispensable') {
+  // Niveles de aprendizaje por defecto: una segunda forma de ordenar los anillos,
+  // por lo que ya saben los estudiantes y no por su grado o módulo.
+  const APRENDIZAJE_BASE = [
+    { id: 'n1', nombre: '1 · Exploración', corto: '1', bloque: 'Lo básico', descripcion: 'Reconocen las ideas básicas en su entorno. No necesitan conocimientos previos.' },
+    { id: 'n2', nombre: '2 · Fundamentos', corto: '2', bloque: 'Lo básico', descripcion: 'Tienen su primer encuentro guiado con los conceptos y las herramientas clave.' },
+    { id: 'n3', nombre: '3 · Práctica', corto: '3', bloque: 'Práctica', descripcion: 'Usan con autonomía lo que ya conocen y lo combinan.' },
+    { id: 'n4', nombre: '4 · Profundización', corto: '4', bloque: 'Práctica', descripcion: 'Dominan los conceptos y los llevan a problemas más abiertos y herramientas más potentes.' },
+    { id: 'n5', nombre: '5 · Apropiación', corto: '5', bloque: 'Apropiación', descripcion: 'Integran, crean y transfieren lo aprendido a otros contextos.' }
+  ];
+  function crearAprendizaje(p) {
+    p.aprendizaje = {
+      nombre: 'Nivel de aprendizaje',
+      descripcion: 'Dónde están los estudiantes en cada rama, más allá del nivel en que se ubica cada nodo.',
+      niveles: JSON.parse(JSON.stringify(APRENDIZAJE_BASE))
+    };
+  }
+  function quitarAprendizaje(p) {
+    delete p.aprendizaje;
+    p.nodos.forEach(n => { delete n.aprendizaje; delete n.motivoAprendizaje; });
+  }
+
+  /** Conecta dos nodos; el anterior (por nivel, o según «orden» si se da: >0 si a va después) es el requisito. */
+  function conectar(p, a, b, tipo = 'indispensable', orden = null) {
     if (a === b) return 'Una guía no puede depender de sí misma.';
     const nivel = new Map(p.niveles.map((n, i) => [n.id, i]));
     let o = p.nodos.find(n => n.id === a), d = p.nodos.find(n => n.id === b);
     const antes = (x, y) => nivel.get(x.nivel) - nivel.get(y.nivel) || Modelo.compararCodigos(x.codigo, y.codigo);
-    if (antes(o, d) > 0) [o, d] = [d, o];
+    if ((orden ?? antes(o, d)) > 0) [o, d] = [d, o];
     d.prerrequisitos = (d.prerrequisitos || []).filter(x => x !== o.id);
     d.deseables = (d.deseables || []).filter(x => x !== o.id);
     (tipo === 'deseable' ? d.deseables : d.prerrequisitos).push(o.id);
@@ -187,6 +209,6 @@ const Editor = (() => {
 
   return {
     PALETA, ICONOS, PERFILES, PLANTILLAS, corto, plural, agregarCategoria, eliminarCategoria, nuevoProyecto, agregarNivel, eliminarNivel, agregarRama, eliminarRama, mover,
-    siguienteCodigo, agregarNodo, renombrarNodo, eliminarNodo, conectar, desconectar
+    siguienteCodigo, agregarNodo, crearAprendizaje, quitarAprendizaje, renombrarNodo, eliminarNodo, conectar, desconectar
   };
 })();

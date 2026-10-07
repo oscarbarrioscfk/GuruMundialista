@@ -240,7 +240,8 @@ const Modelo = (() => {
     });
     proyecto.ramas.forEach((r, i) => {
       const propias = nodos.filter(n => n.tipo !== 'proyecto' && n._rama === i).length;
-      if (propias <= 1) {
+      // Con solo algunos anillos visibles, una rama corta no es un problema de diseño.
+      if (propias <= 1 && !proyecto._recorte) {
         alertas.push({
           tipo: 'rama', gravedad: 'alta', rama: r.id,
           texto: `La rama «${r.corto}» tiene ${propias === 0 ? 'ninguna guía propia' : 'solo una guía propia'}.`,
@@ -255,10 +256,13 @@ const Modelo = (() => {
         n[campo].forEach(pid => {
           const p = m.porId.get(pid);
           if (!p) {
+            if (proyecto._recorte) return;   // está en un anillo que no se ve
             alertas.push({ tipo: 'grafo', gravedad: 'alta', nodo: n.id,
               texto: `${n.codigo} tiene como ${nombre} una guía que no existe (${pid}).`,
               detalle: 'Revisa el código en la hoja del grafo.' });
-          } else if (p._nivel > n._nivel || (p._nivel === n._nivel && compararCodigos(p.codigo, n.codigo) > 0)) {
+          } else if ((p._nivel > n._nivel || (p._nivel === n._nivel && compararCodigos(p.codigo, n.codigo) > 0))
+            // Con anillos por nivel de aprendizaje, una deseable más avanzada es solo una recomendación.
+            && !(proyecto._eje === 'aprendizaje' && nombre === 'deseable')) {
             alertas.push({ tipo: 'grafo', gravedad: 'alta', nodo: n.id,
               texto: `${n.codigo} depende de ${p.codigo}, que llega después.`,
               detalle: `Prerrequisito ${nombre} posterior a la guía.` });
@@ -271,7 +275,7 @@ const Modelo = (() => {
     nodos.filter(n => n.tipo !== 'proyecto').forEach(n => {
       const entra = m.entrantes.get(n.id).length;
       const sale = m.salientes.get(n.id).filter(a => !a.aProyecto).length;
-      if (!entra && !sale) {
+      if (!entra && !sale && !proyecto._recorte) {
         alertas.push({
           tipo: 'huerfano', gravedad: 'media', nodo: n.id,
           texto: `${n.codigo} ${n.titulo} no se conecta con otras guías.`,

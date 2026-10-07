@@ -41,7 +41,8 @@ instalación ni conexión a internet. Se publica con GitHub Pages desde la rama 
 | **Fuente de conexiones** | *Grafo del equipo* (por defecto), *Habilidades* (cadenas derivadas de las habilidades que se repiten) o *Ambas* para compararlas. |
 | **Foco por rama** | Clic en una rama (en el árbol o en el panel) para encuadrarla y atenuar el resto. |
 | **Trayectorias** | 4 rutas de ejemplo (*De bloques a texto*, *Creadores con micro:bit*, *Detectives de datos*, *IA responsable*) y creación de rutas propias haciendo clic en las guías. |
-| **Filtros y búsqueda** | Por herramienta (Scratch, micro:bit, Python…), rango N0/N1/N2, rango de grados o texto. |
+| **Anillos por nivel de aprendizaje** | Sección *Vista* → *Anillos*: por grados o **por nivel de aprendizaje** (ver abajo). |
+| **Filtros y búsqueda** | Por herramienta (Scratch, micro:bit, Python…), rango N0/N1/N2 o texto. *Anillos visibles* deja solo los anillos elegidos (p. ej. de 5° a 7°) y redibuja el árbol con ellos; la ficha avisa qué requisitos quedaron fuera. |
 | **Modo estudiante** | Marca guías completadas; se iluminan las disponibles. Solo bloquean los prerrequisitos indispensables; los deseables aparecen como recomendación. Cada perfil muestra su avance (*Aprendiz → Explorador(a) → Experto(a)*). |
 | **Diagnóstico** | Mapa de equilibrio rama × grado (con *todas las asociaciones* reproduce el mapa de calor «Currículo en Pensamiento Computacional» del equipo) y alertas de diseño: ramas sin guías propias, dependencias incoherentes, guías desconectadas, saltos (N0 → N2) y retrocesos de rango. |
 | **Archivo** | Guardar y abrir el proyecto (`.json`), descargar imagen (`.svg` / `.png` en alta resolución). |
@@ -78,6 +79,42 @@ en `.json` o en hoja de cálculo.
 
 Si se cambia el diseño, hay que compartir un enlace nuevo: el enlace guarda el proyecto tal como estaba
 al generarlo.
+
+## 🎚️ Anillos por nivel de aprendizaje
+
+En el pilotaje, los/las docentes no eligieron las guías por el grado de su curso sino por lo
+que ya sabían sus estudiantes: la guía más usada fue la **5.1**, porque trae todo lo necesario
+para empezar con la micro:bit. Por eso el árbol se puede leer de una segunda forma, como los
+niveles A1, A2, B1… de inglés: **¿en qué punto de la rama están mis estudiantes y hasta dónde
+quiero llevarlos?**
+
+| Momento | Nivel | Qué hacen los estudiantes |
+|---|---|---|
+| Lo básico | **1 · Exploración** | Reconocen ideas del PC en su entorno: siguen instrucciones, encuentran patrones, clasifican. Sin conocimientos previos. |
+| Lo básico | **2 · Fundamentos** | Primer encuentro guiado con un concepto o una herramienta. Aquí están las puertas de entrada: 2.2 ScratchJr, 3.1 Scratch, 5.1 micro:bit, 7.4 hojas de cálculo, 8.4 PhET. |
+| Práctica | **3 · Práctica** | Usan con autonomía lo que conocen y lo combinan (habilidades en N1). 9.4 (entrada a Python) está aquí: lleva a texto lo que ya saben en bloques. |
+| Práctica | **4 · Profundización** | Dominan conceptos y pasan a herramientas más potentes: arreglos, funciones, pines, Python, análisis de datos (N2). |
+| Apropiación | **5 · Apropiación** | Integran y transfieren: soluciones completas, análisis crítico de datos e IA. Incluye los proyectos integradores. |
+
+**Cómo se asignó cada guía** (todas tienen su *porqué* en la ficha):
+
+- **Grafo del equipo**: ningún prerrequisito indispensable queda en un nivel más alto que la guía que lo
+  necesita. Solo dos *deseables* apuntan hacia atrás, a propósito: 4.3 → 5.1 y 7.1 → 9.4 (venir de
+  Scratch ayuda para la micro:bit y para Python, pero no es indispensable).
+- **Nivel de dominio de las habilidades**: N0 suele ser *Fundamentos*, N1 *Práctica* y N2 *Profundización*.
+- **Lo que hacen los estudiantes**: reconocer → usar guiado → aplicar y combinar → dominar → crear y criticar.
+- **Proyectos integradores**: un nivel por encima de lo que integran.
+
+Reparto: 7 guías en Exploración, 16 en Fundamentos, 16 en Práctica, 17 en Profundización y 11 en
+Apropiación (5 guías y 6 proyectos). El código de cada guía sigue indicando su grado de referencia.
+
+- **Planear desde lo que saben** (pestaña *Rutas*): eliges la rama, lo que ya dominan y hasta dónde
+  quieres llevarlos. Sale la lista ordenada de guías, incluidas las de otras ramas que son
+  indispensables en el camino (p. ej. 6.3 y 7.3 para computación física), qué se da por sabido y
+  por dónde empezar. Se puede ver en el árbol o guardar como ruta.
+- En **modo diseño**, la ficha de cada guía permite cambiar su nivel de aprendizaje y su porqué, y la
+  pestaña *Estructura* permite renombrar los niveles o crearlos en cualquier proyecto.
+- Enlace directo: `?ejemplo=pc&anillos=aprendizaje` (en solo lectura, `?lectura&ejemplo=pc&anillos=aprendizaje`).
 
 ## 🏫 Árbol de habilidades institucionales (Marco de Calidad)
 
@@ -137,8 +174,10 @@ por sus columnas (aunque cambie el orden o falten algunas), y un mismo libro pue
 |---|---|---|---|---|---|---|
 | 7.1 | 6.2, 6.4 | | Lógica, Programación y Depuración | | | Scratch |
 
-Al final pueden ir dos columnas opcionales, **Descripción** y **Para avanzar**, con el texto largo
-de cada nodo (las usa el ejemplo del Marco de Calidad).
+Al final pueden ir cuatro columnas opcionales: **Descripción** y **Para avanzar** (el texto largo
+de cada nodo, que usa el Marco de Calidad), y **Nivel de aprendizaje** y **Por qué en este nivel**.
+El nivel se puede escribir como número (`3`), nombre (`Práctica`) o completo (`3 · Práctica`):
+así el equipo puede revisar la asignación en Excel y volver a importarla.
 
 **Habilidades** (una fila por habilidad):
 
@@ -188,12 +227,18 @@ En esa vista, cada *Evaluación y proyectos* recibe todas las guías de su grado
   "categorias": [{ "id": "CON", "nombre": "Conceptos y habilidades en computación", "perfil": "Programador(a)",
                    "icono": "programador", "color": "#3F6FAE", "tinte": "#DCE5F4" }],
   "niveles": [{ "id": "T", "nombre": "Transición", "corto": "T" }],
+  "aprendizaje": {                       // opcional: segunda forma de ordenar los anillos
+    "nombre": "Nivel de aprendizaje",
+    "niveles": [{ "id": "n1", "nombre": "1 · Exploración", "corto": "1", "bloque": "Lo básico", "descripcion": "…" }]
+  },
   "ramas":   [{ "id": "ALG", "categoria": "CON", "nombre": "Algoritmos…", "corto": "Algoritmos", "color": "#662B80", "icono": "algoritmos" }],
   "nodos": [{
     "id": "6.3", "codigo": "6.3", "titulo": "Invernaderos",
     "nivel": "6", "rama": "DAT", "ramasSecundarias": ["FIS"],
     "tipo": "guia",                       // "guia" o "proyecto"
     "descripcion": "…", "avance": "…",    // opcionales: texto largo y «para avanzar»
+    "aprendizaje": "n3",                  // opcional: nivel de aprendizaje (id de aprendizaje.niveles)
+    "motivoAprendizaje": "…",             // opcional: por qué en ese nivel
     "habilidades": [{ "nombre": "Variables en micro:bit", "rango": 0, "clave": "variables" }],
     "herramientas": ["MakeCode", "micro:bit"],
     "prerrequisitos": ["6.1"],            // indispensables (ids de nodos)
@@ -234,6 +279,9 @@ En esa vista, cada *Evaluación y proyectos* recibe todas las guías de su grado
 - La tipografía del póster es *Basic Sans*; en la web se usa **Nunito Sans** como equivalente libre.
 - Los íconos de las ramas son los vectores originales del póster. Los colores de cada categoría usan familias de la paleta de las guías: azul periwinkle (*Conceptos*), lavanda (*Prácticas*) y rosa (*Ciudadanía digital*), en tonos sobrios; cada rama es un tono de la familia de su categoría.
 - Los nombres de los perfiles son una propuesta para conversar con el equipo.
+- El **nivel de aprendizaje** de cada guía es una propuesta a partir del grafo, los rangos N0/N1/N2
+  y los títulos de las habilidades. Conviene revisarla con quienes conocen el contenido de cada guía
+  (p. ej. 11.5 *Científicas(os) en las aulas*, con PhET en N0, quedó en Fundamentos).
 
 ## 🛣️ Fases
 

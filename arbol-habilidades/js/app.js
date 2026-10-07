@@ -21,7 +21,7 @@
   const estado = {
     idProyecto: ID_EJEMPLO, proyecto: null, completados: new Set(), rutasUsuario: [], edicion: false, fichaLectura: false,
     seleccion: null, rutaActiva: null, foco: null, busqueda: '', estudiante: false, editandoRuta: null,
-    fuente: 'equipo', matriz: 'todas', capas: null,
+    fuente: 'equipo', matriz: 'todas', capas: null, eje: 'grado', nivelesEje: [],
     filtros: { herramientas: new Set(), rangos: new Set(), desde: 0, hasta: Infinity }
   };
   let m = null;
@@ -50,6 +50,14 @@
   // y toma los colores de la paleta vigente.
   function actualizarEjemplo(p) {
     const semilla = window.PROYECTO_PC;
+    // La progresión por nivel de aprendizaje llega al ejemplo ya guardado sin tocar lo demás.
+    if (!p.aprendizaje && semilla.aprendizaje && p.titulo === semilla.titulo) {
+      p.aprendizaje = copia(semilla.aprendizaje);
+      p.nodos.forEach(n => {
+        const s = semilla.nodos.find(x => x.id === n.id);
+        if (s && s.aprendizaje && !n.aprendizaje) { n.aprendizaje = s.aprendizaje; n.motivoAprendizaje = s.motivoAprendizaje; }
+      });
+    }
     if (p.categorias && p.paleta !== semilla.paleta) {
       p.categorias.forEach(c => { const s = semilla.categorias.find(x => x.id === c.id); if (s) { c.color = s.color; c.tinte = s.tinte; } });
       p.ramas.forEach(r => { const s = semilla.ramas.find(x => x.id === r.id); if (s) r.color = s.color; });
@@ -70,7 +78,7 @@
       // En lectura solo se recuerdan la vista y el progreso del modo estudiante.
       try {
         const prefs = JSON.parse(localStorage.getItem(CLAVE_LECTURA) || '{}');
-        prefs[estado.idProyecto] = { capas: estado.capas, completados: [...estado.completados] };
+        prefs[estado.idProyecto] = { capas: estado.capas, eje: estado.eje, completados: [...estado.completados] };
         localStorage.setItem(CLAVE_LECTURA, JSON.stringify(prefs));
       } catch (e) { /* sin almacenamiento */ }
       return;
@@ -78,7 +86,7 @@
     almacen.actual = estado.idProyecto;
     almacen.proyectos[estado.idProyecto] = {
       proyecto: estado.proyecto, completados: [...estado.completados], rutasUsuario: estado.rutasUsuario,
-      fuente: estado.fuente, capas: estado.capas, actualizado: Date.now()
+      fuente: estado.fuente, capas: estado.capas, eje: estado.eje, actualizado: Date.now()
     };
     try { localStorage.setItem(CLAVE, JSON.stringify(almacen)); } catch (e) { /* sin almacenamiento: la sesión sigue funcionando */ }
   }
@@ -91,6 +99,8 @@
     estado.rutasUsuario = e.rutasUsuario || [];
     estado.fuente = Modelo.FUENTES[e.fuente] ? e.fuente : 'equipo';
     estado.capas = { ...CAPAS_COMPLETAS, ...(e.capas || {}) };
+    estado.eje = e.eje === 'aprendizaje' ? 'aprendizaje' : 'grado';
+    if (!tieneAprendizaje(e.proyecto)) estado.eje = 'grado';
     vista.establecerCapas(estado.capas);
     estado.seleccion = estado.rutaActiva = estado.foco = estado.editandoRuta = null;
     estado.filtros = { herramientas: new Set(), rangos: new Set(), desde: 0, hasta: Infinity };
@@ -117,13 +127,13 @@
       }
     } catch (e) { error = e.message || String(e); }
     if (!datos) datos = { proyecto: copia(window.PROYECTO_PC) };
-    if (!datos.proyecto.categorias && datos.proyecto.titulo === window.PROYECTO_PC.titulo) actualizarEjemplo(datos.proyecto);
+    if (datos.proyecto.titulo === window.PROYECTO_PC.titulo && (!datos.proyecto.categorias || !datos.proyecto.aprendizaje)) actualizarEjemplo(datos.proyecto);
     const id = `lectura:${Modelo.normalizar(datos.proyecto.titulo || 'proyecto')}`;
     let prefs = {};
     try { prefs = JSON.parse(localStorage.getItem(CLAVE_LECTURA) || '{}')[id] || {}; } catch (e) { /* sin almacenamiento */ }
     almacen.proyectos[id] = {
       proyecto: datos.proyecto, rutasUsuario: datos.rutas || [], fuente: datos.fuente,
-      capas: prefs.capas || datos.capas, completados: prefs.completados || []
+      capas: prefs.capas || datos.capas, eje: PARAMS.get('anillos') || prefs.eje || datos.eje, completados: prefs.completados || []
     };
     abrirProyecto(id);
     if (datos.vista === 'poster') $('[data-vista="poster"]').click();
@@ -136,7 +146,7 @@
     let guardado = { actual: ID_EJEMPLO, proyectos: {} };
     try { guardado = JSON.parse(localStorage.getItem(CLAVE) || 'null') || guardado; } catch (err) { /* vacío */ }
     const id = `p-${Date.now().toString(36)}`;
-    guardado.proyectos[id] = { proyecto: copia(e.proyecto), completados: [], rutasUsuario: copia(e.rutasUsuario || []), fuente: estado.fuente, capas: estado.capas, actualizado: Date.now() };
+    guardado.proyectos[id] = { proyecto: copia(e.proyecto), completados: [], rutasUsuario: copia(e.rutasUsuario || []), fuente: estado.fuente, capas: estado.capas, eje: estado.eje, actualizado: Date.now() };
     guardado.actual = id;
     try { localStorage.setItem(CLAVE, JSON.stringify(guardado)); } catch (err) { aviso('Este navegador no permite guardar proyectos.', 'error'); return; }
     location.href = location.href.split(/[?#]/)[0];
@@ -144,7 +154,7 @@
 
   async function dialogoCompartir() {
     const codigo = await Compartir.codificar({
-      proyecto: estado.proyecto, rutas: estado.rutasUsuario, capas: estado.capas, fuente: estado.fuente, vista: vista.vista
+      proyecto: estado.proyecto, rutas: estado.rutasUsuario, capas: estado.capas, fuente: estado.fuente, vista: vista.vista, eje: estado.eje
     });
     const url = Compartir.enlace(codigo);
     const local = location.protocol === 'file:';
@@ -259,7 +269,10 @@
     onDobleClic: celda => crearEnCelda(celda),
     onConectar: (a, b, deseable) => {
       let r = null;
-      cambiar(p => { r = Editor.conectar(p, a, b, deseable ? 'deseable' : 'indispensable'); if (typeof r === 'string') { aviso(r, 'error'); return false; } }, { formulario: true });
+      // Se orienta según los anillos que se ven: lo de un anillo interior es el requisito.
+      const na = m.porId.get(a), nb = m.porId.get(b);
+      const orden = na && nb ? (na._nivel - nb._nivel || Modelo.compararCodigos(na.codigo, nb.codigo)) : 0;
+      cambiar(p => { r = Editor.conectar(p, a, b, deseable ? 'deseable' : 'indispensable', orden); if (typeof r === 'string') { aviso(r, 'error'); return false; } }, { formulario: true });
       if (r && typeof r === 'object') aviso(`${r.origen} → ${r.destino} (${deseable ? 'deseable' : 'indispensable'}). Ctrl+Z para deshacer.`);
     }
   });
@@ -268,18 +281,76 @@
     if (!estado.edicion) return;
     if (!celda) { aviso('Haz doble clic dentro de un anillo y una rama para crear ahí la guía.'); return; }
     let nuevo = null;
-    cambiar(p => { nuevo = Editor.agregarNodo(p, celda); estado.seleccion = nuevo.id; });
+    if (m.proyecto._eje === 'aprendizaje') {
+      // El anillo es un nivel de aprendizaje: la guía nueva toma el grado más común de ese nivel.
+      const delNivel = estado.proyecto.nodos.filter(n => n.aprendizaje === celda.nivel);
+      const cuenta = new Map();
+      delNivel.forEach(n => cuenta.set(n.nivel, (cuenta.get(n.nivel) || 0) + 1));
+      const grado = [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || estado.proyecto.niveles[0].id;
+      cambiar(p => { nuevo = Editor.agregarNodo(p, { ...celda, nivel: grado }); nuevo.aprendizaje = celda.nivel; estado.seleccion = nuevo.id; });
+    } else cambiar(p => { nuevo = Editor.agregarNodo(p, celda); estado.seleccion = nuevo.id; });
     activarPestana('detalle');
     const t = $('#detalle [data-campo="titulo"]');
     if (t) { t.focus(); t.select(); }
     aviso(`${nuevo.codigo} creada. Escribe su título y sus habilidades.`);
   }
 
+  // ── Anillos: por grado o por nivel de aprendizaje, y solo los del rango elegido ──
+  const tieneAprendizaje = p => !!(p && p.aprendizaje && Array.isArray(p.aprendizaje.niveles) && p.aprendizaje.niveles.length);
+  /**
+   * Proyecto que se dibuja. Con anillos por nivel de aprendizaje, cada nodo toma su
+   * nivel de aprendizaje como anillo (el grado queda en «_grado»). Con un rango de
+   * niveles en el filtro, solo quedan esos anillos y sus nodos.
+   */
+  function proyectoVisible() {
+    const base = estado.proyecto;
+    let p = base;
+    if (estado.eje === 'aprendizaje' && !tieneAprendizaje(base)) estado.eje = 'grado';
+    if (estado.eje === 'aprendizaje') {
+      const niveles = base.aprendizaje.niveles;
+      const ids = new Set(niveles.map(n => n.id));
+      p = {
+        ...base, _eje: 'aprendizaje', niveles,
+        vocabulario: { ...(base.vocabulario || {}), nivel: base.aprendizaje.nivel || 'Nivel' },
+        nodos: base.nodos.map(n => ({ ...n, nivel: ids.has(n.aprendizaje) ? n.aprendizaje : niveles[0].id, _grado: n.nivel, _sinAsignar: !ids.has(n.aprendizaje) }))
+      };
+    }
+    estado.nivelesEje = p.niveles;
+    const f = estado.filtros, ultimo = p.niveles.length - 1;
+    if (!Number.isFinite(f.hasta) || f.hasta > ultimo) f.hasta = ultimo;
+    if (f.desde > f.hasta) f.desde = 0;
+    if (f.desde > 0 || f.hasta < ultimo) {
+      const visibles = new Set(p.niveles.slice(f.desde, f.hasta + 1).map(n => n.id));
+      p = { ...p, _recorte: true, niveles: p.niveles.filter(n => visibles.has(n.id)), nodos: p.nodos.filter(n => visibles.has(n.nivel)) };
+    }
+    return p;
+  }
+  function cambiarEje(eje) {
+    if (eje === estado.eje) return;
+    estado.eje = eje;
+    estado.filtros.desde = 0; estado.filtros.hasta = Infinity;
+    guardar();
+    reconstruir();
+  }
+  function renderEje() {
+    const cont = $('#eje-anillos');
+    const hay = tieneAprendizaje(estado.proyecto);
+    cont.hidden = !hay;
+    if (!hay) return;
+    const grado = Editor.plural(estado.proyecto.vocabulario?.nivel || 'Nivel');
+    cont.innerHTML = `
+      <h3 class="subtitulo-panel">Anillos</h3>
+      <div class="interruptor" role="group" aria-label="Qué representan los anillos">
+        <button type="button" data-eje="grado" aria-pressed="${estado.eje === 'grado'}">Por ${esc(grado.toLowerCase())}</button>
+        <button type="button" data-eje="aprendizaje" aria-pressed="${estado.eje === 'aprendizaje'}">Por nivel de aprendizaje</button>
+      </div>
+      ${estado.eje === 'aprendizaje' ? `<p class="nota">${esc(estado.proyecto.aprendizaje.descripcion || '')} El código de cada guía sigue indicando su grado de referencia.</p>` : ''}`;
+  }
+
   function reconstruir({ encuadrar = true, detalle = true, estructura = true } = {}) {
-    m = Modelo.preparar(estado.proyecto, { fuente: estado.fuente });
+    m = Modelo.preparar(proyectoVisible(), { fuente: estado.fuente });
     $$('#filtro-fuente [data-fuente]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.fuente === estado.fuente)));
-    estado.filtros.hasta = Math.min(estado.filtros.hasta, m.proyecto.niveles.length - 1);
-    if (!Number.isFinite(estado.filtros.hasta)) estado.filtros.hasta = m.proyecto.niveles.length - 1;
+    renderEje();
     vista.dibujar(m);
     $('#titulo-proyecto').textContent = `${m.proyecto.titulo} · ${m.proyecto.subtitulo || ''}`.replace(/ · $/, '');
     $('#autoria').textContent = m.proyecto.autoria || '';
@@ -373,7 +444,13 @@
             <li><b>Clic en una rama</b>: la enfocas y atenúas el resto.</li>
             <li><b>Rutas</b>: recorridos listos o creados por ti.</li>
             <li><b>${esc(voc.modo || 'Modo estudiante')}</b>: marca ${esc(nodos)} completadas y mira qué se desbloquea.</li>
+            ${tieneAprendizaje(estado.proyecto) ? `<li><b>Anillos por nivel de aprendizaje</b> (panel Vista): ordena las ${esc(nodos)} por lo que ya saben tus estudiantes, no por su grado. En <b>Rutas</b> puedes planear un recorrido.</li>` : ''}
           </ul>
+          ${m.proyecto._eje === 'aprendizaje' ? `
+            <h4 class="titulo-niveles">${esc(estado.proyecto.aprendizaje.nombre || 'Niveles de aprendizaje')}</h4>
+            <ol class="niveles-aprendizaje">${estado.proyecto.aprendizaje.niveles.map(x => `
+              <li><div><span class="pildora-aprendizaje">${esc(x.nombre)}</span>${x.bloque ? `<span class="bloque-aprendizaje">${esc(x.bloque)}</span>` : ''}</div><p>${esc(x.descripcion || '')}</p></li>`).join('')}
+            </ol>` : ''}
         </div>`;
       return;
     }
@@ -395,6 +472,25 @@
         return del.length ? `<h5 class="tipo-vinculo"><i class="linea-${t}"></i>${esc(TIPO_VINCULO[t])} (${del.length})</h5><div class="vinculos">${del.map(a => vinculo(a, lado)).join('')}</div>` : '';
       }).join('');
     };
+    // Grado y nivel de aprendizaje (del proyecto completo, no del recorte que se dibuja)
+    const base = estado.proyecto, nBase = base.nodos.find(x => x.id === id) || n;
+    const grado = base.niveles.find(x => x.id === nBase.nivel);
+    const conAprendizaje = tieneAprendizaje(base);
+    const nivA = conAprendizaje ? base.aprendizaje.niveles.find(x => x.id === nBase.aprendizaje) : null;
+    const meta = m.proyecto._eje === 'aprendizaje'
+      ? `${nivel.nombre} · ${m.proyecto.vocabulario?.nodo || 'Nodo'}${n.tipo === 'proyecto' ? ' integradora' : ''} de ${grado ? grado.nombre : '—'}`
+      : `${nivel.nombre} · ${m.proyecto.vocabulario?.nodo || 'Nodo'}${n.tipo === 'proyecto' ? ' integradora' : ''}`;
+    const bloqueAprendizaje = !conAprendizaje ? '' : nivA
+      ? `<div class="ficha-aprendizaje" title="${esc(nivA.descripcion || '')}">
+          <div><span class="pildora-aprendizaje">${esc(nivA.nombre)}</span>${nivA.bloque ? `<span class="bloque-aprendizaje">${esc(nivA.bloque)}</span>` : ''}</div>
+          ${nBase.motivoAprendizaje ? `<p>${esc(nBase.motivoAprendizaje)}</p>` : ''}
+        </div>`
+      : `<p class="nota">Sin ${esc((base.aprendizaje.nombre || 'nivel de aprendizaje').toLowerCase())} asignado${estado.edicion ? ': elígelo en ✎ Editar.' : '.'}</p>`;
+    // Conexiones del equipo que quedaron fuera de los anillos visibles
+    const nombreDe = x => { const o = base.nodos.find(y => y.id === x); return o ? `<b>${esc(o.codigo)}</b> ${esc(o.titulo)}` : esc(x); };
+    const fueraReq = [...(nBase.prerrequisitos || []).map(x => [x, 'indispensable']), ...(nBase.deseables || []).map(x => [x, 'deseable'])].filter(([x]) => !m.porId.has(x));
+    const fueraSal = base.nodos.filter(x => !m.porId.has(x.id) && ((x.prerrequisitos || []).includes(id) || (x.deseables || []).includes(id)));
+    const fuera = (lista, titulo) => (lista.length ? `<p class="nota fuera-vista">${titulo}: ${lista.join(' · ')}</p>` : '');
     const est = estado.estudiante ? Modelo.estado(m, id, estado.completados) : null;
     const faltan = est === 'bloqueado' ? requiere.filter(a => a.tipo !== 'deseable' && !estado.completados.has(a.origen)).map(a => m.porId.get(a.origen).codigo) : [];
     const recomendadas = est && est !== 'completado' ? requiere.filter(a => a.tipo === 'deseable' && !estado.completados.has(a.origen)).map(a => m.porId.get(a.origen).codigo) : [];
@@ -404,7 +500,7 @@
           <div class="ficha-codigo ${n.tipo === 'proyecto' ? 'proyecto' : ''}" style="color:${rama.color}">${esc(n.codigo)}</div>
           <div>
             <h3 class="ficha-titulo">${esc(n.titulo)}</h3>
-            <div class="ficha-meta">${esc(nivel.nombre)} · ${esc(m.proyecto.vocabulario?.nodo || 'Nodo')}${n.tipo === 'proyecto' ? ' integradora' : ''}</div>
+            <div class="ficha-meta">${esc(meta)}</div>
           </div>
         </div>
         <div class="etiquetas">
@@ -412,6 +508,7 @@
           ${n.ramasSecundarias.map(r => { const x = m.ramaPorId.get(r); return `<span class="etiqueta secundaria" style="color:${x.color}">${esc(x.corto)}</span>`; }).join('')}
           ${n.herramientas.map(t => `<span class="etiqueta herramienta">${esc(t)}</span>`).join('')}
         </div>
+        ${bloqueAprendizaje}
         ${est ? `<p class="nota" style="font-size:.82rem;color:${est === 'bloqueado' ? '#C2417A' : '#3C8D5A'}">
           ${est === 'completado' ? '✔ Completada. Clic de nuevo para desmarcar.' : est === 'disponible' ? '★ Disponible: haz clic en el nodo para marcarla como completada.' : `🔒 Bloqueada: completa antes ${esc(faltan.join(', '))}.`}${recomendadas.length ? `<br>Recomendado antes: ${esc(recomendadas.join(', '))}.` : ''}</p>` : ''}
         ${n.descripcion ? `<p class="ficha-descripcion">${esc(n.descripcion)}</p>` : ''}
@@ -422,9 +519,11 @@
           </ul>` : '<p class="nota">Integra lo trabajado en las guías del nivel.</p>'}
         ${n.avance ? `<div class="ficha-avance"><h4>Para avanzar${siguienteNivel ? ` a ${esc(siguienteNivel.nombre)}` : ''}</h4><p>${esc(n.avance)}</p></div>` : ''}
         <h4>Requiere (${requiere.length})</h4>
-        ${grupos(requiere, 'origen', 'Es un punto de entrada: no tiene prerrequisitos.')}
+        ${grupos(requiere, 'origen', fueraReq.length ? 'Ninguno dentro de los anillos visibles.' : 'Es un punto de entrada: no tiene prerrequisitos.')}
+        ${fuera(fueraReq.map(([x, t]) => `${nombreDe(x)} <small>(${t})</small>`), 'Fuera de los anillos visibles')}
         <h4>Desbloquea (${desbloquea.length})</h4>
-        ${grupos(desbloquea, 'destino', 'Ninguna guía posterior depende de esta.')}
+        ${grupos(desbloquea, 'destino', fueraSal.length ? 'Nada dentro de los anillos visibles.' : 'Ninguna guía posterior depende de esta.')}
+        ${fuera(fueraSal.map(x => nombreDe(x.id)), 'Fuera de los anillos visibles')}
         <p class="nota">${esc(NOTA_FUENTE[m.fuente])} Debajo de cada vínculo aparecen las habilidades que comparten.</p>
         ${estado.edicion ? `<button type="button" class="boton" data-editar-ficha="${esc(n.id)}">✎ Editar</button>` : ''}
       </article>`;
@@ -479,7 +578,7 @@
       `<button type="button" class="chip" data-herramienta="${t.id}" aria-pressed="${estado.filtros.herramientas.has(t.id)}">${esc(t.nombre)}</button>`).join('');
     $('#filtro-rangos').innerHTML = Modelo.RANGOS.map((r, i) =>
       `<button type="button" class="chip" data-rango="${i}" aria-pressed="${estado.filtros.rangos.has(i)}">${r}</button>`).join('');
-    const opciones = m.proyecto.niveles.map((n, i) => `<option value="${i}">${esc(n.nombre)}</option>`).join('');
+    const opciones = estado.nivelesEje.map((n, i) => `<option value="${i}">${esc(n.nombre)}</option>`).join('');
     $('#nivel-desde').innerHTML = opciones;
     $('#nivel-hasta').innerHTML = opciones;
     $('#nivel-desde').value = estado.filtros.desde;
@@ -487,13 +586,12 @@
   }
   function coincidencias() {
     const f = estado.filtros, q = Modelo.normalizar(estado.busqueda);
-    const ultimo = m.proyecto.niveles.length - 1;
-    const activo = f.herramientas.size || f.rangos.size || f.desde > 0 || f.hasta < ultimo || q;
+    // El rango de niveles no atenúa: deja solo esos anillos (ver proyectoVisible).
+    const activo = f.herramientas.size || f.rangos.size || q;
     if (!activo) return null;
     return new Set(m.nodos.filter(n =>
       (!f.herramientas.size || n._herramientas.some(t => f.herramientas.has(t)))
       && (!f.rangos.size || n.habilidades.some(h => f.rangos.has(h.rango)))
-      && n._nivel >= f.desde && n._nivel <= f.hasta
       && (!q || n._busqueda.includes(q))
     ).map(n => n.id));
   }
@@ -503,7 +601,88 @@
 
   // ── Trayectorias ────────────────────────────────────────────────
   const todasLasRutas = () => [...(m.proyecto.trayectorias || []).map(r => ({ ...r, propia: false })), ...estado.rutasUsuario.map(r => ({ ...r, propia: true }))];
-  const rutaPorId = id => todasLasRutas().find(r => r.id === id);
+  const rutaPorId = id => (id === '__plan' ? { id, nodos: planear().pasos.map(x => x.id) } : todasLasRutas().find(r => r.id === id));
+
+  /**
+   * Planear desde lo que saben: guías de una rama (principal o secundaria) entre el
+   * nivel de aprendizaje siguiente al que ya dominan y la meta, más las guías de otras
+   * ramas que son indispensables en el camino. Lo de niveles anteriores se da por sabido.
+   */
+  function planear() {
+    const base = estado.proyecto;
+    if (!tieneAprendizaje(base)) return { pasos: [], sabidos: [] };
+    const niveles = base.aprendizaje.niveles, idx = new Map(niveles.map((x, i) => [x.id, i]));
+    const pl = estado.plan = estado.plan && base.ramas.some(r => r.id === estado.plan.rama) ? estado.plan
+      : { rama: base.ramas[0].id, dominan: -1, meta: niveles.length - 1 };
+    pl.meta = Math.min(pl.meta, niveles.length - 1);
+    const desde = pl.dominan + 1, hasta = pl.meta;
+    const porId = new Map(base.nodos.map(n => [n.id, n]));
+    const nivelDe = n => (idx.has(n.aprendizaje) ? idx.get(n.aprendizaje) : -1);
+    const enRango = n => nivelDe(n) >= desde && nivelDe(n) <= hasta;
+    const deLaRama = n => n.rama === pl.rama || (n.ramasSecundarias || []).includes(pl.rama);
+    const elegidos = new Map();
+    base.nodos.filter(n => n.tipo !== 'proyecto' && deLaRama(n) && enRango(n)).forEach(n => elegidos.set(n.id, 'rama'));
+    const sabidos = new Set();
+    const cola = [...elegidos.keys()];
+    while (cola.length) {
+      const n = porId.get(cola.shift());
+      (n.prerrequisitos || []).forEach(pid => {
+        const p = porId.get(pid);
+        if (!p || elegidos.has(pid)) return;
+        if (nivelDe(p) < desde) { if (elegidos.get(n.id) === 'rama') sabidos.add(pid); return; }
+        if (nivelDe(p) > hasta) return;
+        elegidos.set(pid, 'puente'); cola.push(pid);
+      });
+    }
+    // Orden: respeta los prerrequisitos (indispensables y deseables) dentro del plan; desempata por nivel y código.
+    const pendientes = new Set(elegidos.keys()), pasos = [];
+    const antes = (a, b) => nivelDe(porId.get(a)) - nivelDe(porId.get(b)) || Modelo.compararCodigos(a, b);
+    while (pendientes.size) {
+      const listos = [...pendientes].filter(id => {
+        const n = porId.get(id);
+        return [...(n.prerrequisitos || []), ...(n.deseables || [])].every(p => !pendientes.has(p) || p === id);
+      }).sort(antes);
+      const sig = listos[0] || [...pendientes].sort(antes)[0];
+      pendientes.delete(sig);
+      const n = porId.get(sig);
+      pasos.push({ id: sig, nodo: n, origen: elegidos.get(sig), nivel: niveles[nivelDe(n)],
+        entrada: !(n.prerrequisitos || []).some(p => elegidos.has(p)) });
+    }
+    return { pasos, sabidos: [...sabidos].sort(Modelo.compararCodigos).map(id => porId.get(id)), desde, hasta };
+  }
+  function renderPlaneador() {
+    const base = estado.proyecto;
+    if (!tieneAprendizaje(base)) return '';
+    const { pasos, sabidos } = planear(), pl = estado.plan, niveles = base.aprendizaje.niveles;
+    const rama = base.ramas.find(r => r.id === pl.rama);
+    const opcionesNivel = (desdeI, hastaI, valor) => niveles.map((x, i) => (i < desdeI || i > hastaI ? ''
+      : `<option value="${i}" ${i === valor ? 'selected' : ''}>${esc(x.nombre)}</option>`)).join('');
+    const nodo = (Editor.plural((base.vocabulario?.nodo || 'guía').toLowerCase()));
+    return `
+      <details class="planeador" ${estado.planAbierto === false ? '' : 'open'}>
+        <summary>Planear desde lo que saben</summary>
+        <p class="nota">Elige la rama, lo que ya dominan tus estudiantes y hasta dónde quieres llevarlos. No importa el grado: cuenta lo que ya aprendieron.</p>
+        <label>Rama<select id="plan-rama">${base.ramas.map(r => `<option value="${esc(r.id)}" ${r.id === pl.rama ? 'selected' : ''}>${esc(r.corto)}</option>`).join('')}</select></label>
+        <div class="dos-col">
+          <label>Ya dominan<select id="plan-dominan"><option value="-1" ${pl.dominan === -1 ? 'selected' : ''}>Nada aún</option>${opcionesNivel(0, niveles.length - 2, pl.dominan)}</select></label>
+          <label>Quiero llevarlos a<select id="plan-meta">${opcionesNivel(pl.dominan + 1, niveles.length - 1, pl.meta)}</select></label>
+        </div>
+        ${pasos.length ? `
+          <ol class="plan-pasos">${pasos.map(x => `
+            <li class="${x.origen}" data-ir="${esc(x.id)}" role="button" tabindex="0">
+              <span class="plan-nivel">${esc(x.nivel?.corto || '')}</span>
+              <span><b>${esc(x.nodo.codigo)}</b> ${esc(x.nodo.titulo)}
+                <small>${x.entrada ? '<em>Para empezar</em> · ' : ''}${x.origen === 'puente' ? `necesaria, de ${esc(base.ramas.find(r => r.id === x.nodo.rama)?.corto || '')}` : esc(base.niveles.find(g => g.id === x.nodo.nivel)?.nombre || '')}</small></span>
+            </li>`).join('')}
+          </ol>
+          ${sabidos.length ? `<p class="nota">Se da por sabido: ${sabidos.map(x => `<b>${esc(x.codigo)}</b> ${esc(x.titulo)}`).join(' · ')}.</p>` : ''}
+          <div class="botonera">
+            <button type="button" class="boton boton-secundario" data-accion-plan="ver" aria-pressed="${estado.rutaActiva === '__plan'}">${estado.rutaActiva === '__plan' ? 'Quitar del árbol' : 'Ver en el árbol'}</button>
+            ${LECTURA ? '' : '<button type="button" class="boton" data-accion-plan="guardar">Guardar como ruta</button>'}
+          </div>`
+        : `<p class="nota">No hay ${esc(nodo)} de ${esc(rama?.corto || 'esta rama')} en esos niveles.</p>`}
+      </details>`;
+  }
 
   function renderTrayectorias() {
     const ed = estado.editandoRuta;
@@ -521,6 +700,7 @@
           </div>
         </div>`
         : LECTURA ? '' : `<button type="button" class="boton" data-accion-ruta="nueva" style="margin-bottom:12px">+ Nueva trayectoria</button>`}
+      ${ed ? '' : renderPlaneador()}
       ${todasLasRutas().map(r => `
         <div class="ruta ${estado.rutaActiva === r.id ? 'activo' : ''}" data-ruta="${esc(r.id)}" role="button" tabindex="0">
           <h5><span>${esc(r.nombre)}</span>${r.propia && !LECTURA ? `<button type="button" class="enlace borrar" data-borrar-ruta="${esc(r.id)}">Borrar</button>` : ''}</h5>
@@ -838,14 +1018,15 @@
       let d = +$('#nivel-desde').value, h = +$('#nivel-hasta').value;
       if (d > h) [d, h] = [h, d];
       Object.assign(estado.filtros, { desde: d, hasta: h });
-      $('#nivel-desde').value = d; $('#nivel-hasta').value = h;
-      aplicarFiltros();
+      reconstruir();
     }));
     $('#limpiar-filtros').addEventListener('click', () => {
-      estado.filtros = { herramientas: new Set(), rangos: new Set(), desde: 0, hasta: m.proyecto.niveles.length - 1 };
+      const recorte = estado.filtros.desde > 0 || estado.filtros.hasta < estado.nivelesEje.length - 1;
+      estado.filtros = { herramientas: new Set(), rangos: new Set(), desde: 0, hasta: estado.nivelesEje.length - 1 };
       estado.busqueda = ''; $('#buscar').value = '';
-      renderFiltros(); aplicarFiltros();
+      if (recorte) reconstruir(); else { renderFiltros(); aplicarFiltros(); }
     });
+    $('#eje-anillos').addEventListener('click', e => { const b = e.target.closest('[data-eje]'); if (b) cambiarEje(b.dataset.eje); });
 
     $('#btn-estudiante').addEventListener('click', () => { estado.estudiante = !estado.estudiante; aplicarEstudiante(); renderDetalle(); });
     $('#reiniciar-progreso').addEventListener('click', () => { estado.completados.clear(); guardar(); aplicarEstudiante(); renderDetalle(); });
@@ -928,6 +1109,21 @@
     });
 
     $('#trayectorias').addEventListener('click', e => {
+      const plan = e.target.closest('[data-accion-plan]');
+      if (plan) {
+        if (plan.dataset.accionPlan === 'ver') { activarRuta('__plan'); return; }
+        const { pasos } = planear(), pl = estado.plan, base = estado.proyecto;
+        const niveles = base.aprendizaje.niveles, rama = base.ramas.find(r => r.id === pl.rama);
+        const id = `propia-${Date.now()}`;
+        estado.rutasUsuario.push({
+          id, nombre: `${rama.corto}: ${pl.dominan < 0 ? 'desde cero' : `después de ${niveles[pl.dominan].nombre}`} hasta ${niveles[pl.meta].nombre}`,
+          descripcion: `Planeada desde lo que ya saben los estudiantes (${pasos.length} pasos).`, nodos: pasos.map(x => x.id)
+        });
+        guardar(); activarRuta(id); aviso('Ruta guardada en «Rutas».');
+        return;
+      }
+      const irPaso = e.target.closest('.plan-pasos [data-ir]');
+      if (irPaso) { if (m.porId.has(irPaso.dataset.ir)) { seleccionar(irPaso.dataset.ir); vista.centrarEn(irPaso.dataset.ir); } else aviso('Esa guía está fuera de los anillos visibles.'); return; }
       const borrar = e.target.closest('[data-borrar-ruta]');
       if (borrar) {
         e.stopPropagation();
@@ -955,6 +1151,17 @@
       const ruta = e.target.closest('[data-ruta]');
       if (ruta && !estado.editandoRuta) activarRuta(ruta.dataset.ruta);
     });
+    $('#trayectorias').addEventListener('change', e => {
+      const id = e.target.id;
+      if (!['plan-rama', 'plan-dominan', 'plan-meta'].includes(id)) return;
+      const pl = estado.plan;
+      if (id === 'plan-rama') pl.rama = e.target.value;
+      if (id === 'plan-dominan') { pl.dominan = +e.target.value; pl.meta = Math.max(pl.meta, pl.dominan + 1); }
+      if (id === 'plan-meta') pl.meta = +e.target.value;
+      renderTrayectorias();
+      if (estado.rutaActiva === '__plan') { const ids = planear().pasos.map(x => x.id); vista.mostrarRuta(ids); if (ids.length) vista.encuadrar(ids.filter(x => m.porId.has(x))); }
+    });
+    $('#trayectorias').addEventListener('toggle', e => { if (e.target.matches('.planeador')) estado.planAbierto = e.target.open; }, true);
     $('#trayectorias').addEventListener('input', e => {
       if (!estado.editandoRuta) return;
       if (e.target.id === 'ruta-nombre') estado.editandoRuta.nombre = e.target.value;
@@ -986,5 +1193,10 @@
   });
   // «?ejemplo=marco» abre directamente uno de los proyectos de ejemplo.
   const ejemploPedido = `ejemplo-${PARAMS.get('ejemplo')}`;
-  if (LECTURA) iniciarLectura(); else abrirProyecto(almacen.proyectos[ejemploPedido] ? ejemploPedido : almacen.actual);
+  // «&anillos=aprendizaje» abre con los anillos por nivel de aprendizaje.
+  if (LECTURA) iniciarLectura();
+  else {
+    abrirProyecto(almacen.proyectos[ejemploPedido] ? ejemploPedido : almacen.actual);
+    if (PARAMS.get('anillos') === 'aprendizaje' && tieneAprendizaje(estado.proyecto)) cambiarEje('aprendizaje');
+  }
 })();
